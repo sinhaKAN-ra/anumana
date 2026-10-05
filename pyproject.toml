@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anumana-mcp"
-version = "0.2.0"
+version = "0.2.1"
 description = "Catch the costly query your AI agent just wrote — before it runs. An MCP server that predicts query cost, explains how it runs, and rewrites it, grounded in your real schema via EXPLAIN (never ANALYZE), across 12 database engines: Postgres, MySQL, SQLite, pgvector, MongoDB, DynamoDB, Cassandra, FalkorDB, Redshift, BigQuery, Snowflake, ClickHouse."
 readme = "README.md"
 requires-python = ">=3.10"
