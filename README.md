@@ -1,5 +1,7 @@
 # Anumana
 
+<!-- mcp-name: io.github.sinhaKAN-ra/anumana -->
+
 **Know what your query will cost — before you run it.**
 *Inference-grade foresight for every query your AI writes.*
 

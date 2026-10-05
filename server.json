@@ -1,20 +1,19 @@
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.sinhaKAN-ra/anumana",
-  "description": "Predict a query's cost, explain how it runs, and rewrite it — before it runs — grounded in your real schema via EXPLAIN (never ANALYZE), across 12 database engines.",
+  "description": "Predict query cost, explain the plan, and rewrite it before you run it — 12 DB engines.",
   "status": "active",
   "repository": {
     "url": "https://github.com/sinhaKAN-ra/anumana",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "websiteUrl": "https://github.com/sinhaKAN-ra/anumana",
   "packages": [
     {
       "registryType": "pypi",
-      "registryBaseUrl": "https://pypi.org",
       "identifier": "anumana-mcp",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "transport": {
         "type": "stdio"
       },
