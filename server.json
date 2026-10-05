@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.sinhaKAN-ra/anumana",
+  "description": "Predict a query's cost, explain how it runs, and rewrite it — before it runs — grounded in your real schema via EXPLAIN (never ANALYZE), across 12 database engines.",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/sinhaKAN-ra/anumana",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "websiteUrl": "https://github.com/sinhaKAN-ra/anumana",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "anumana-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ANUMANA_DSN",
+          "description": "Read-only connection string for the primary target database (e.g. postgresql://readonly@host:5432/db). Optional if ANUMANA_TARGETS is used.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ANUMANA_TARGETS",
+          "description": "JSON array of named targets for a multi-database setup, each with name, engine, and connection string.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "ANUMANA_POLICIES",
+          "description": "JSON array of operator enforcement policies (block/warn/allow rules by risk tier or flag). Optional; open by default.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

@@ -62,7 +62,8 @@ no store to publish into.
 {
   "mcpServers": {
     "anumana": {
-      "command": "anumana-mcp",
+      "command": "uvx",
+      "args": ["anumana-mcp"],
       "env": { "ANUMANA_DSN": "postgres://readonly@localhost:5432/mydb" }
     }
   }
