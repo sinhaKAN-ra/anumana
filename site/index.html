@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Anumana — know what your query will cost, before you run it</title>
+<meta name="description" content="Anumana is an MCP server that catches the costly query your AI agent just wrote — before it runs. Reads your real schema via EXPLAIN, grades cost, explains the plan, across 12 database engines." />
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #121826; --panel-2: #0e1420;
+    --fg: #e6edf3; --muted: #93a1b5; --line: #233047;
+    --accent: #5eead4; --accent-2: #38bdf8; --warn: #fbbf24; --danger: #f87171;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+  code, pre { font-family: var(--mono); }
+  pre {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; font-size: 13.5px; color: #cdd9e5;
+  }
+  code.inline { background: var(--panel-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 5px; font-size: 0.9em; color: var(--accent); }
+
+  header.hero {
+    text-align: center; padding: 88px 24px 56px;
+    background: radial-gradient(1200px 400px at 50% -10%, rgba(94,234,212,0.12), transparent 60%);
+    border-bottom: 1px solid var(--line);
+  }
+  .badge {
+    display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: .08em;
+    color: var(--accent); border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 14px; margin-bottom: 22px; text-transform: uppercase;
+  }
+  h1 { font-size: clamp(32px, 5vw, 52px); margin: 0 0 14px; letter-spacing: -0.02em; line-height: 1.1; }
+  .tagline { font-size: clamp(16px, 2.4vw, 21px); color: var(--muted); max-width: 620px; margin: 0 auto 32px; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: 12px 22px; border-radius: 10px; font-weight: 600;
+    font-size: 15px; border: 1px solid transparent;
+  }
+  .btn.primary { background: var(--accent); color: #04281f; }
+  .btn.primary:hover { background: #7af0dc; text-decoration: none; }
+  .btn.ghost { border-color: var(--line); color: var(--fg); }
+  .btn.ghost:hover { border-color: var(--accent); text-decoration: none; }
+
+  section { padding: 56px 0; border-bottom: 1px solid var(--line); }
+  h2 { font-size: clamp(22px, 3vw, 30px); margin: 0 0 8px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
+  }
+  .card h3 { margin: 0 0 6px; font-size: 15px; font-family: var(--mono); color: var(--accent); }
+  .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
+  .pill { font-family: var(--mono); font-size: 11.5px; padding: 2px 9px; border-radius: 999px; display: inline-block; }
+  .pill.live { color: #04281f; background: var(--accent); }
+  .pill.untested { color: var(--warn); border: 1px solid var(--warn); }
+
+  .rail { background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 8px; padding: 16px 18px; margin-top: 18px; color: var(--muted); font-size: 14.5px; }
+  .rail strong { color: var(--fg); }
+
+  footer { text-align: center; padding: 44px 24px 60px; color: var(--muted); font-size: 14px; }
+  .muted { color: var(--muted); }
+  .center { text-align: center; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="badge">MCP server · open source · MIT</span>
+    <h1>Know what your query will cost<br/>— <span style="color:var(--accent)">before</span> you run it.</h1>
+    <p class="tagline">Anumana catches the costly query your AI agent just wrote — before it runs or reaches a PR. It reads your real schema, grades the cost, and explains the plan in plain English, across 12 database engines.</p>
+    <div class="cta">
+      <a class="btn primary" href="#install">Get started</a>
+      <a class="btn ghost" href="https://github.com/sinhaKAN-ra/anumana">View on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<section id="what">
+  <div class="wrap">
+    <h2>The feedback loop your agent is missing</h2>
+    <p class="sub">An AI agent writing SQL or a vector search has no idea it just triggered a full-table scan or a brute-force search over every embedding. Anumana is the <code class="inline">EXPLAIN</code>-grade check it never had — it never runs the query, and it never fakes a number.</p>
+    <div class="grid">
+      <div class="card"><h3>preflight_query</h3><p>Will this SQL be costly? Risk tier, rows scanned vs returned, scan strategy, overhead flags — without running it.</p></div>
+      <div class="card"><h3>suggest_query</h3><p>Grade the agent's candidate against the real planner: accept it, or refine with a verified cheaper rewrite.</p></div>
+      <div class="card"><h3>explain_query_working</h3><p>How does it run? The logical order plus the real physical plan, bottom-up, in plain English.</p></div>
+      <div class="card"><h3>rewrite_query</h3><p>Make it cheaper — an equivalent rewrite with before/after planner cost, and index suggestions gated on selectivity.</p></div>
+      <div class="card"><h3>preflight_vector_search</h3><p>Catches the RAG traps: brute-force ANN scan with no HNSW index, top_k too large, unbounded search.</p></div>
+      <div class="card"><h3>describe_schema</h3><p>Reads your real catalog — tables, columns, indexes, row counts — so the agent writes grounded SQL, not guesses.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="engines">
+  <div class="wrap">
+    <h2>12 engines, 7 paradigms</h2>
+    <p class="sub">An engine qualifies only if it exposes a cost signal readable <em>without running the query</em>. <span class="pill live">LIVE</span> = proven end-to-end against a real instance. <span class="pill untested">UNTESTED</span> = written &amp; unit-checked offline, promoted one at a time.</p>
+    <table>
+      <thead><tr><th>Engine</th><th>Paradigm</th><th>Cost signal</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Postgres</td><td>Relational</td><td><code class="inline">EXPLAIN JSON</code></td><td><span class="pill live">LIVE</span></td></tr>
+        <tr><td>SQLite</td><td>Relational (embedded)</td><td><code class="inline">EXPLAIN QUERY PLAN</code></td><td><span class="pill live">LIVE</span></td></tr>
+        <tr><td>MySQL / MariaDB</td><td>Relational</td><td><code class="inline">EXPLAIN FORMAT=JSON</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>pgvector</td><td>Vector / RAG</td><td><code class="inline">EXPLAIN</code> on ANN</td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>MongoDB</td><td>Document</td><td><code class="inline">queryPlanner</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>DynamoDB</td><td>Key-value</td><td>rule-based</td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>FalkorDB</td><td>Graph (Cypher)</td><td><code class="inline">GRAPH.EXPLAIN</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>Cassandra / ScyllaDB</td><td>Wide-column</td><td>rule-based (partition key)</td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>Amazon Redshift</td><td>MPP warehouse</td><td>text <code class="inline">EXPLAIN</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>Google BigQuery</td><td>Serverless warehouse</td><td>dry-run → <strong>$ cost</strong></td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>Snowflake</td><td>Cloud warehouse</td><td><code class="inline">EXPLAIN USING JSON</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
+        <tr><td>ClickHouse</td><td>OLAP</td><td><code class="inline">EXPLAIN ESTIMATE</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
+      </tbody>
+    </table>
+    <div class="rail"><strong>BigQuery is special.</strong> It bills per byte scanned, and its dry run returns the exact bytes a query <em>would</em> scan — so Anumana reports a real <strong>dollar cost</strong> before you run it, not a planner abstraction.</div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Install</h2>
+    <p class="sub">Anumana rides inside Claude, Cursor, Windsurf, Codex, Kiro, or any MCP-compatible agent. The user installs it; the agent discovers the tools automatically on connect.</p>
+    <pre>pip install anumana-mcp        # once published to PyPI
+# or from source:
+git clone https://github.com/sinhaKAN-ra/anumana.git
+cd anumana &amp;&amp; pip install -e .</pre>
+    <p class="sub" style="margin-top:24px">Point your agent at it with an <code class="inline">mcpServers</code> config block (use a <strong>read-only</strong> role):</p>
+    <pre>{
+  "mcpServers": {
+    "anumana": {
+      "command": "anumana-mcp",
+      "env": { "ANUMANA_DSN": "postgres://readonly@localhost:5432/mydb" }
+    }
+  }
+}</pre>
+    <div class="rail"><strong>No database handy?</strong> Omit <code class="inline">ANUMANA_DSN</code> and use <code class="inline">preflight_schema_only</code> — it analyses pasted <code class="inline">CREATE TABLE</code> DDL with no connection at all.</div>
+  </div>
+</section>
+
+<section id="honest">
+  <div class="wrap">
+    <h2>The one honest rule</h2>
+    <p class="sub">Planner cost is <strong>unitless — not milliseconds</strong>. Anumana never fakes a <code class="inline">~3.2s</code> number. It reports rows scanned, scan strategy, a risk tier, overhead flags, and the cost-delta of a rewrite — all defensible, nothing invented. Every estimate carries an accuracy tier. It never executes your query: <code class="inline">EXPLAIN</code>, never <code class="inline">EXPLAIN ANALYZE</code>.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Anumana is open source under the <a href="https://github.com/sinhaKAN-ra/anumana/blob/main/LICENSE">MIT license</a>. Contributions welcome — see <a href="https://github.com/sinhaKAN-ra/anumana/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
+    <p class="muted">Questions, bugs, or ideas? <a href="mailto:nomore.report@gmail.com">nomore.report@gmail.com</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

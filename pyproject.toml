@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "anumana-mcp"
+version = "0.2.0"
+description = "Catch the slow SQL query your AI coding agent just wrote — before it ships. An MCP server that predicts query cost, explains how it runs, and rewrites it, grounded in your real Postgres schema via EXPLAIN (never ANALYZE)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Karan Sinha" }]
+keywords = ["mcp", "postgres", "sql", "query-optimization", "explain", "ai-agent", "cursor", "claude", "database"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Database",
+    "Topic :: Software Development :: Quality Assurance",
+]
+dependencies = [
+    "mcp[cli]>=1.2.0,<2",
+    "psycopg[binary]>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+mongodb = ["pymongo>=4.0"]
+dynamodb = ["boto3>=1.28"]
+all = ["pymongo>=4.0", "boto3>=1.28"]
+
+[project.urls]
+Homepage = "https://github.com/karansinha/anumana-mcp"
+Repository = "https://github.com/karansinha/anumana-mcp"
+Issues = "https://github.com/karansinha/anumana-mcp/issues"
+
+[project.scripts]
+anumana-mcp = "anumana.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/anumana"]

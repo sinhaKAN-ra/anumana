@@ -1,0 +1,37 @@
+# dependencies / virtualenvs
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# python caches
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# local databases / probes / scratch
+*.db
+*.sqlite
+*.sqlite3
+.anumana_probe/
+*.log
+
+# env / secrets — never commit a DSN or credential
+.env
+.env.*
+*.local
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# strategic docs — local only, never published
+STRATEGY_BRIEF.md
+MARKET_SIZING.md
