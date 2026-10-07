@@ -35,3 +35,7 @@ __pycache__/
 # strategic docs — local only, never published
 STRATEGY_BRIEF.md
 MARKET_SIZING.md
+AGENTS.md
+DESIG.md
+GENERATIVE_MODE.md
+/docs/AGENT_PROMPT.md
