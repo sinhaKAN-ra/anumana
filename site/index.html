@@ -1,184 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Anumana — know what your query will cost, before you run it</title>
-<meta name="description" content="Anumana is an MCP server that catches the costly query your AI agent just wrote — before it runs. Reads your real schema via EXPLAIN, grades cost, explains the plan, across 12 database engines." />
-<style>
-  :root {
-    --bg: #0b0f17; --panel: #121826; --panel-2: #0e1420;
-    --fg: #e6edf3; --muted: #93a1b5; --line: #233047;
-    --accent: #5eead4; --accent-2: #38bdf8; --warn: #fbbf24; --danger: #f87171;
-    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body {
-    margin: 0; background: var(--bg); color: var(--fg);
-    font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased;
-  }
-  a { color: var(--accent-2); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
-  code, pre { font-family: var(--mono); }
-  pre {
-    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
-    padding: 16px 18px; overflow-x: auto; font-size: 13.5px; color: #cdd9e5;
-  }
-  code.inline { background: var(--panel-2); border: 1px solid var(--line);
-    padding: 1px 6px; border-radius: 5px; font-size: 0.9em; color: var(--accent); }
-
-  header.hero {
-    text-align: center; padding: 88px 24px 56px;
-    background: radial-gradient(1200px 400px at 50% -10%, rgba(94,234,212,0.12), transparent 60%);
-    border-bottom: 1px solid var(--line);
-  }
-  .badge {
-    display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: .08em;
-    color: var(--accent); border: 1px solid var(--line); border-radius: 999px;
-    padding: 5px 14px; margin-bottom: 22px; text-transform: uppercase;
-  }
-  h1 { font-size: clamp(32px, 5vw, 52px); margin: 0 0 14px; letter-spacing: -0.02em; line-height: 1.1; }
-  .tagline { font-size: clamp(16px, 2.4vw, 21px); color: var(--muted); max-width: 620px; margin: 0 auto 32px; }
-  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .btn {
-    display: inline-block; padding: 12px 22px; border-radius: 10px; font-weight: 600;
-    font-size: 15px; border: 1px solid transparent;
-  }
-  .btn.primary { background: var(--accent); color: #04281f; }
-  .btn.primary:hover { background: #7af0dc; text-decoration: none; }
-  .btn.ghost { border-color: var(--line); color: var(--fg); }
-  .btn.ghost:hover { border-color: var(--accent); text-decoration: none; }
-
-  section { padding: 56px 0; border-bottom: 1px solid var(--line); }
-  h2 { font-size: clamp(22px, 3vw, 30px); margin: 0 0 8px; letter-spacing: -0.01em; }
-  .sub { color: var(--muted); margin: 0 0 28px; }
-
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-  .card {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px;
-  }
-  .card h3 { margin: 0 0 6px; font-size: 15px; font-family: var(--mono); color: var(--accent); }
-  .card p { margin: 0; color: var(--muted); font-size: 14.5px; }
-
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; }
-  .pill { font-family: var(--mono); font-size: 11.5px; padding: 2px 9px; border-radius: 999px; display: inline-block; }
-  .pill.live { color: #04281f; background: var(--accent); }
-  .pill.untested { color: var(--warn); border: 1px solid var(--warn); }
-
-  .rail { background: var(--panel-2); border: 1px solid var(--line); border-left: 3px solid var(--accent);
-    border-radius: 8px; padding: 16px 18px; margin-top: 18px; color: var(--muted); font-size: 14.5px; }
-  .rail strong { color: var(--fg); }
-
-  footer { text-align: center; padding: 44px 24px 60px; color: var(--muted); font-size: 14px; }
-  .muted { color: var(--muted); }
-  .center { text-align: center; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101411">
+  <title>Anumana — Database Query Plans &amp; Cost Checks for AI Agents</title>
+  <meta name="description" content="Anumana is an open-source MCP server for reviewing database query plans and estimated cost before execution. Connect your agent or start with offline SQL checks.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://anumana.aolbeam.com/">
+  <link rel="alternate" type="text/plain" title="Anumana AI discovery overview" href="/llms.txt">
+  <meta property="og:title" content="Anumana — Database Query Plans &amp; Cost Checks for AI Agents">
+  <meta property="og:description" content="Anumana is an open-source MCP server for reviewing database query plans and estimated cost before execution. Connect your agent or start with offline SQL checks.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Anumana">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:url" content="https://anumana.aolbeam.com/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Anumana — Database Query Plans &amp; Cost Checks for AI Agents">
+  <meta name="twitter:description" content="Anumana is an open-source MCP server for reviewing database query plans and estimated cost before execution. Connect your agent or start with offline SQL checks.">
+  <meta name="twitter:url" content="https://anumana.aolbeam.com/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://anumana.aolbeam.com/#website",
+      "url": "https://anumana.aolbeam.com/",
+      "name": "Anumana",
+      "inLanguage": "en"
+    },
+    {
+      "@type": "WebPage",
+      "@id": "https://anumana.aolbeam.com/#webpage",
+      "url": "https://anumana.aolbeam.com/",
+      "name": "Anumana — Database Query Plans & Cost Checks for AI Agents",
+      "description": "Anumana is an open-source MCP server for reviewing database query plans and estimated cost before execution. Connect your agent or start with offline SQL checks.",
+      "inLanguage": "en",
+      "isPartOf": {
+        "@id": "https://anumana.aolbeam.com/#website"
+      },
+      "mainEntity": {
+        "@id": "https://anumana.aolbeam.com/#software"
+      }
+    },
+    {
+      "@type": [
+        "SoftwareApplication",
+        "SoftwareSourceCode"
+      ],
+      "@id": "https://anumana.aolbeam.com/#software",
+      "name": "Anumana",
+      "url": "https://anumana.aolbeam.com/",
+      "description": "An open-source MCP server for inspecting database query plans, estimated costs and access patterns before execution, with a heuristic offline SQL DDL checker. Engine readiness varies.",
+      "applicationCategory": "DeveloperApplication",
+      "programmingLanguage": "Python",
+      "runtimePlatform": "Python 3.10+",
+      "softwareRequirements": "An MCP-compatible client; read-only database access for live planner checks.",
+      "codeRepository": "https://github.com/sinhaKAN-ra/anumana",
+      "license": "https://github.com/sinhaKAN-ra/anumana/blob/main/LICENSE"
+    }
+  ]
+}
+  </script>
 </head>
 <body>
-
-<header class="hero">
-  <div class="wrap">
-    <span class="badge">MCP server · open source · MIT</span>
-    <h1>Know what your query will cost<br/>— <span style="color:var(--accent)">before</span> you run it.</h1>
-    <p class="tagline">Anumana catches the costly query your AI agent just wrote — before it runs or reaches a PR. It reads your real schema, grades the cost, and explains the plan in plain English, across 12 database engines.</p>
-    <div class="cta">
-      <a class="btn primary" href="#install">Get started</a>
-      <a class="btn ghost" href="https://github.com/sinhaKAN-ra/anumana">View on GitHub</a>
-    </div>
+<a class="skip" href="#main">Skip to content</a>
+<header class="header">
+  <div class="wrap nav">
+    <a class="brand" href="#" aria-label="Anumana home"><span class="brand-mark" aria-hidden="true">a<span>↗</span></span>anumana<span class="brand-dot">.</span></a>
+    <nav aria-label="Main navigation"><a href="#engines">Databases</a><a href="#skill">The skill</a><a href="#get-started">Get started</a></nav>
+    <a class="nav-github" href="https://github.com/sinhaKAN-ra/anumana">GitHub <span aria-hidden="true">↗</span></a>
   </div>
 </header>
-
-<section id="what">
-  <div class="wrap">
-    <h2>The feedback loop your agent is missing</h2>
-    <p class="sub">An AI agent writing SQL or a vector search has no idea it just triggered a full-table scan or a brute-force search over every embedding. Anumana is the <code class="inline">EXPLAIN</code>-grade check it never had — it never runs the query, and it never fakes a number.</p>
-    <div class="grid">
-      <div class="card"><h3>preflight_query</h3><p>Will this SQL be costly? Risk tier, rows scanned vs returned, scan strategy, overhead flags — without running it.</p></div>
-      <div class="card"><h3>suggest_query</h3><p>Grade the agent's candidate against the real planner: accept it, or refine with a verified cheaper rewrite.</p></div>
-      <div class="card"><h3>explain_query_working</h3><p>How does it run? The logical order plus the real physical plan, bottom-up, in plain English.</p></div>
-      <div class="card"><h3>rewrite_query</h3><p>Make it cheaper — an equivalent rewrite with before/after planner cost, and index suggestions gated on selectivity.</p></div>
-      <div class="card"><h3>preflight_vector_search</h3><p>Catches the RAG traps: brute-force ANN scan with no HNSW index, top_k too large, unbounded search.</p></div>
-      <div class="card"><h3>describe_schema</h3><p>Reads your real catalog — tables, columns, indexes, row counts — so the agent writes grounded SQL, not guesses.</p></div>
+<main id="main">
+  <section class="hero wrap" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <div class="eyebrow"><span class="status-dot" aria-hidden="true"></span> QUERY FORESIGHT FOR AI AGENTS</div>
+      <h1 id="hero-title">Good query.<br>But <em>at what cost?</em></h1>
+      <p class="hero-description">Anumana is an open-source MCP server for coding agents and developers who write SQL and vector searches. Inspect database query plans and estimated cost before execution.</p>
+      <p class="hero-detail">Anumana reads the planner’s estimates, surfaces expensive patterns, and helps your agent refine its query. <strong>EXPLAIN only. The query stays unexecuted.</strong></p>
+      <div class="actions"><a class="button primary" href="#get-started">Connect Anumana <span aria-hidden="true">↗</span></a><a class="button secondary" href="#skill">Meet the agent skill <span aria-hidden="true">↓</span></a></div>
+      <div class="hero-footnote"><span>Open-source MCP</span><span>Runs locally</span><span>MIT licensed</span></div>
     </div>
-  </div>
-</section>
+    <div class="hero-visual" aria-label="Illustration of Anumana checking a query before execution">
+      <div class="window-bar"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>anumana / preflight</span><span class="mono small">01</span></div>
+      <div class="visual-query"><span class="code-label">THE AGENT’S QUERY</span><pre><code><span class="syntax">SELECT</span> *
+<span class="syntax">FROM</span> orders
+<span class="syntax">WHERE</span> customer_id = <span class="number">42</span>;</code></pre></div>
+      <div class="plan-flow" aria-hidden="true"><span></span><div>EXPLAIN <b>↓</b></div><span></span></div>
+      <div class="risk-result"><div class="risk-heading"><span class="risk-icon" aria-hidden="true">!</span><strong>Worth a second look.</strong><span class="risk-badge">EXPENSIVE</span></div><p>A sequential scan can do a lot of work to find a few matching rows.</p><div class="result-line"><span>Plan signal</span><code>SEQ_SCAN_LARGE</code></div><div class="result-line"><span>Next step</span><span>Review the filter &amp; indexes</span></div></div>
+      <div class="visual-bottom"><span class="status-dot" aria-hidden="true"></span> Query not executed <span class="illustration">Illustrative example</span></div>
+    </div>
+  </section>
+  <div class="principles"><div class="wrap"><span>Built for the moment <strong>before execution.</strong></span><span><span aria-hidden="true">↳</span> PostgreSQL &amp; pgvector</span><span><span aria-hidden="true">↳</span> Offline DDL checks</span><a href="https://pypi.org/project/anumana-mcp/0.2.1/">v0.2.1 on PyPI ↗</a></div></div>
 
-<section id="engines">
-  <div class="wrap">
-    <h2>12 engines, 7 paradigms</h2>
-    <p class="sub">An engine qualifies only if it exposes a cost signal readable <em>without running the query</em>. <span class="pill live">LIVE</span> = proven end-to-end against a real instance. <span class="pill untested">UNTESTED</span> = written &amp; unit-checked offline, promoted one at a time.</p>
-    <table>
-      <thead><tr><th>Engine</th><th>Paradigm</th><th>Cost signal</th><th>Status</th></tr></thead>
-      <tbody>
-        <tr><td>Postgres</td><td>Relational</td><td><code class="inline">EXPLAIN JSON</code></td><td><span class="pill live">LIVE</span></td></tr>
-        <tr><td>SQLite</td><td>Relational (embedded)</td><td><code class="inline">EXPLAIN QUERY PLAN</code></td><td><span class="pill live">LIVE</span></td></tr>
-        <tr><td>MySQL / MariaDB</td><td>Relational</td><td><code class="inline">EXPLAIN FORMAT=JSON</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>pgvector</td><td>Vector / RAG</td><td><code class="inline">EXPLAIN</code> on ANN</td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>MongoDB</td><td>Document</td><td><code class="inline">queryPlanner</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>DynamoDB</td><td>Key-value</td><td>rule-based</td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>FalkorDB</td><td>Graph (Cypher)</td><td><code class="inline">GRAPH.EXPLAIN</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>Cassandra / ScyllaDB</td><td>Wide-column</td><td>rule-based (partition key)</td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>Amazon Redshift</td><td>MPP warehouse</td><td>text <code class="inline">EXPLAIN</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>Google BigQuery</td><td>Serverless warehouse</td><td>dry-run → <strong>$ cost</strong></td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>Snowflake</td><td>Cloud warehouse</td><td><code class="inline">EXPLAIN USING JSON</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
-        <tr><td>ClickHouse</td><td>OLAP</td><td><code class="inline">EXPLAIN ESTIMATE</code></td><td><span class="pill untested">UNTESTED</span></td></tr>
-      </tbody>
-    </table>
-    <div class="rail"><strong>BigQuery is special.</strong> It bills per byte scanned, and its dry run returns the exact bytes a query <em>would</em> scan — so Anumana reports a real <strong>dollar cost</strong> before you run it, not a planner abstraction.</div>
-  </div>
-</section>
+  <section class="section wrap" id="how-it-works" aria-labelledby="workflow-title">
+    <div class="section-heading"><div><p class="eyebrow">01 / THE FEEDBACK LOOP</p><h2 id="workflow-title">From plausible SQL<br>to a grounded decision.</h2></div><p class="section-intro">The agent writes the query. Anumana brings the database’s own planning signals into the conversation.</p></div>
+    <div class="workflow-grid">
+      <article><span class="step-number">01</span><h3>Read the real schema.</h3><p>Start with the tables, columns and indexes that actually exist. Give the agent context before it writes SQL.</p><code>describe_schema_tool</code></article>
+      <article><span class="step-number">02</span><h3>Ask the planner.</h3><p>Inspect estimated work, scan strategy and risk. Catch large scans, excessive top-k and unbounded results.</p><code>preflight_query</code></article>
+      <article><span class="step-number">03</span><h3>Refine with evidence.</h3><p>Review proposed changes, preserve the intended results, and check the candidate again before recommending it.</p><code>suggest_query · rewrite_query</code></article>
+    </div>
+  </section>
 
-<section id="install">
-  <div class="wrap">
-    <h2>Install</h2>
-    <p class="sub">Anumana rides inside Claude, Cursor, Windsurf, Codex, Kiro, or any MCP-compatible agent. The user installs it; the agent discovers the tools automatically on connect.</p>
-    <pre>pip install anumana-mcp        # once published to PyPI
-# or from source:
-git clone https://github.com/sinhaKAN-ra/anumana.git
-cd anumana &amp;&amp; pip install -e .</pre>
-    <p class="sub" style="margin-top:24px">Point your agent at it with an <code class="inline">mcpServers</code> config block (use a <strong>read-only</strong> role):</p>
-    <pre>{
+  <section class="section demo-section" id="examples" aria-labelledby="examples-title"><div class="wrap">
+    <div class="section-heading"><div><p class="eyebrow">02 / WHAT THE AGENT SEES</p><h2 id="examples-title">Make hidden work visible.</h2></div><p class="section-intro">A query can look small and still ask the database to do something expensive.</p></div>
+    <div class="example-switch" role="group" aria-label="Choose an illustrative query"><button type="button" data-example="postgres" aria-pressed="true">PostgreSQL</button><button type="button" data-example="vector" aria-pressed="false">pgvector / RAG</button><button type="button" data-example="offline" aria-pressed="false">Offline DDL</button></div>
+    <div class="demo-grid">
+      <div class="demo-code"><div class="panel-top"><span id="demo-tool">preflight_query</span><span>INPUT</span></div><pre><code id="demo-sql">SELECT *
+FROM orders
+WHERE customer_id = 42;</code></pre><p id="demo-context">A customer lookup without a supporting index.</p></div>
+      <div class="demo-output" aria-live="polite" aria-atomic="true"><div class="panel-top"><span>What to investigate</span><span class="example-label">ILLUSTRATIVE</span></div><h3 id="demo-title">A selective lookup.<br>A sequential scan.</h3><p id="demo-description">The planner may choose sequential access when no suitable index serves this filter. Check the scan estimate and selectivity before proposing an index.</p><div class="flag-list" id="demo-flags"><code>SEQ_SCAN_LARGE</code><code>SELECT_STAR_WIDE</code><code>UNBOUNDED_RESULT</code></div><p class="demo-next" id="demo-next">Next: inspect the plan, project required columns, and review index options.</p></div>
+    </div><p class="caption">Example scenarios, not live database results. This page sends no SQL to a database.</p>
+  </div></section>
+
+  <section class="section wrap" id="skill" aria-labelledby="skill-title">
+    <div class="skill-card">
+      <div class="skill-intro"><p class="eyebrow">03 / CAPABILITY + WORKFLOW</p><h2 id="skill-title">Give your agent<br>the <em>playbook</em>, too.</h2><p>The MCP provides the tools. The skill teaches the agent when to reach for them, how to interpret the findings, and when a rewrite changes the answer.</p><a class="button primary" id="agensi-link" href="https://www.agensi.io/">Explore Agensi <span aria-hidden="true">↗</span></a><p class="marketplace-note" id="agensi-status">Anumana’s marketplace listing is coming soon.<br>This link opens the Agensi marketplace.</p></div>
+      <div class="skill-file"><div class="file-heading"><span class="file-icon" aria-hidden="true">↗</span><div><strong>anumana-query-preflight</strong><span>Agent skill · 12 engine profiles</span></div><span class="file-extension">.md</span></div><div class="skill-features"><div><span aria-hidden="true">✓</span><p><strong>Schema-first workflow</strong>Ground every candidate in real tables and indexes.</p></div><div><span aria-hidden="true">✓</span><p><strong>Bounded refinement</strong>Check, refine and recheck, without an endless loop.</p></div><div><span aria-hidden="true">✓</span><p><strong>Semantic guardrails</strong>Review LIMIT, projection and recall trade-offs.</p></div><div><span aria-hidden="true">✓</span><p><strong>Setup included</strong>Engine profiles, readiness states, templates and test checklists.</p></div></div><div class="file-footer"><code>SKILL.md</code><span>+ setup + templates + examples</span></div></div>
+    </div>
+    <div class="skill-explainer"><p><span class="mini-label">THE MCP</span>Connects the agent to Anumana’s planner tools.</p><span class="plus" aria-hidden="true">+</span><p><span class="mini-label">THE SKILL</span>Makes using those tools a repeatable workflow.</p><span class="equals" aria-hidden="true">=</span><p><span class="mini-label">THE RESULT</span>Better-informed query decisions before execution.</p></div>
+  </section>
+
+  <section class="section install-section" id="get-started" aria-labelledby="install-title"><div class="wrap">
+    <div class="section-heading"><div><p class="eyebrow">04 / GET CONNECTED</p><h2 id="install-title">Local tools.<br>Your database. Your agent.</h2></div><p class="section-intro">Start with the free MCP server. Add the skill when available. No hosted database service is included or required.</p></div>
+    <div class="install-grid"><div class="install-instructions"><span class="step-number">01 / CONNECT THE MCP</span><h3>A small config.<br>A useful feedback loop.</h3><p>Install <a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a>, then merge this template into your agent’s MCP configuration. It launches Anumana locally using <code>uvx</code>.</p><label class="field-label" for="config-mode">Choose your setup</label><select id="config-mode"><option value="postgres">PostgreSQL</option><option value="pgvector">PostgreSQL + pgvector</option><option value="offline">Offline — no database credentials</option></select><p id="config-help" class="setup-help">Replace the DSN placeholder locally with your own read-only PostgreSQL connection. Keep credentials out of source control.</p><p class="small muted">Python 3.10+. The first launch downloads the pinned PyPI package. Clients using another config format need the same command, arguments and environment settings.</p></div>
+    <div class="config-panel"><div class="panel-top"><span>MCP configuration template</span><button type="button" class="copy-button" data-copy="mcp-config">Copy config <span aria-hidden="true">⧉</span></button></div><pre tabindex="0"><code id="mcp-config">{
   "mcpServers": {
     "anumana": {
-      "command": "anumana-mcp",
-      "env": { "ANUMANA_DSN": "postgres://readonly@localhost:5432/mydb" }
+      "command": "uvx",
+      "args": ["anumana-mcp==0.2.1"],
+      "env": {
+        "ANUMANA_DSN": "REPLACE_WITH_READ_ONLY_POSTGRES_DSN",
+        "ANUMANA_ENGINE": "postgres"
+      }
     }
   }
-}</pre>
-    <div class="rail"><strong>No database handy?</strong> Omit <code class="inline">ANUMANA_DSN</code> and use <code class="inline">preflight_schema_only</code> — it analyses pasted <code class="inline">CREATE TABLE</code> DDL with no connection at all.</div>
-  </div>
-</section>
+}</code></pre><div class="config-footer"><span class="status-dot" aria-hidden="true"></span> Local stdio MCP server <span>v0.2.1</span></div></div></div>
 
-<section id="honest">
-  <div class="wrap">
-    <h2>The one honest rule</h2>
-    <p class="sub">Planner cost is <strong>unitless — not milliseconds</strong>. Anumana never fakes a <code class="inline">~3.2s</code> number. It reports rows scanned, scan strategy, a risk tier, overhead flags, and the cost-delta of a rewrite — all defensible, nothing invented. Every estimate carries an accuracy tier. It never executes your query: <code class="inline">EXPLAIN</code>, never <code class="inline">EXPLAIN ANALYZE</code>.</p>
-  </div>
-</section>
+    <div class="skill-install" id="use-skill"><div class="skill-install-heading"><div><span class="step-number">02 / ADD THE SKILL</span><h3>Turn the tools into a habit.</h3></div><p>Once you have the skill package, keep all its supporting files together. Installing a skill does not register the MCP server.</p></div>
+      <ol class="install-steps"><li><strong>Get the package.</strong><p>When the Anumana listing is live, get it through Agensi and follow its installation flow. The package contains SKILL.md, setup instructions, engine profiles, templates and test checklists.</p></li><li><strong>Load it in your agent.</strong><p>For a local-folder installation, extract the package into a folder named <code>anumana-query-preflight</code> in the client’s skill directory.</p><label class="field-label" for="skill-client">Project skill location</label><select id="skill-client"><option value="claude">Claude Code</option><option value="cursor">Cursor</option><option value="copilot">GitHub Copilot</option></select><code class="skill-path" id="skill-path">.claude/skills/anumana-query-preflight/SKILL.md</code><a class="small" id="skill-docs" href="https://code.claude.com/docs/en/skills">Client skill documentation ↗</a></li><li><strong>Reconnect and ask.</strong><p>Check that Anumana’s tools are available, then ask your agent to use the skill for your next query. Start offline if you don’t want to connect a database.</p></li></ol>
+      <div class="prompt-box"><div class="panel-top"><span>TRY THIS WITH YOUR AGENT</span><button type="button" class="copy-button" data-copy="starter-prompt">Copy prompt <span aria-hidden="true">⧉</span></button></div><p id="starter-prompt">Use the anumana-query-preflight skill to review this query before execution. Inspect the schema first, check estimated cost, and explain any risks. Preserve the intended results and do not execute the query.</p></div>
+      <p class="small muted">The skill includes profiles for all 12 adapter families and every readiness state. Use connected runners for live/provisional checks; use preparation mode for unwired engines. The MCP works independently of the skill.</p>
+    </div>
+    <details class="offline-example"><summary>No credentials? Try an offline check.</summary><div><p>Give your agent this DDL and query, then ask it to call <code>preflight_schema_only</code>. Expect heuristic findings, not live row counts or measured savings.</p><pre><code>DDL: CREATE TABLE orders (
+  id bigint PRIMARY KEY,
+  customer_id bigint,
+  total numeric
+);
 
-<footer>
-  <div class="wrap">
-    <p>Anumana is open source under the <a href="https://github.com/sinhaKAN-ra/anumana/blob/main/LICENSE">MIT license</a>. Contributions welcome — see <a href="https://github.com/sinhaKAN-ra/anumana/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
-    <p class="muted">Questions, bugs, or ideas? <a href="mailto:nomore.report@gmail.com">nomore.report@gmail.com</a></p>
-  </div>
-</footer>
+SQL: SELECT * FROM orders;</code></pre></div></details>
+  </div></section>
 
-<!-- Vercel Web Analytics (static site) — script is served by Vercel once Analytics is enabled for the project -->
-<script>
-  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-</script>
+  <section class="section wrap" id="engines" aria-labelledby="engines-title">
+    <div class="section-heading"><div><p class="eyebrow">05 / FIND YOUR DATABASE</p><h2 id="engines-title">Every engine.<br>Every readiness state.</h2></div><p class="section-intro">All 12 adapter families are listed below. Check the connection and testing columns before choosing your setup.</p></div>
+    <div class="db-summary"><span><strong id="db-adapter-total">12</strong> adapters implemented</span><span><strong id="db-runner-total">7</strong> MCP runners connected</span><span><strong id="db-tested-total">2</strong> engines live-tested</span></div>
+    <p class="coverage-scope">Development-checkout status, not a guarantee of support in published v0.2.1. <strong>Connected</strong> means a server connection path exists. <strong>Live-tested</strong> means real-engine evidence is recorded for tested paths. <strong>Not wired</strong> means the adapter cannot yet be called live through the MCP server.</p>
+    <div class="db-controls"><div><label class="field-label" for="db-search">Find your database</label><input id="db-search" type="search" placeholder="Search PostgreSQL, MariaDB, Scylla…" autocomplete="off"></div><div><label class="field-label" for="db-filter">Show engines</label><select id="db-filter"><option value="all">All database families</option><option value="connected">Runner connected</option><option value="tested">Live-tested</option><option value="not-wired">Runner not wired</option></select></div><p id="db-count" role="status" aria-live="polite">12 of 12 database families</p></div>
+    <div class="db-table-scroll" role="region" aria-label="Database support and verification status; scroll horizontally on small screens" tabindex="0"><table class="db-table"><caption>Current adapter, live-connection and verification coverage</caption><thead><tr><th scope="col">Database</th><th scope="col">Query format</th><th scope="col">Cost / access signal</th><th scope="col">Adapter</th><th scope="col">MCP runner</th><th scope="col">Live tests</th></tr></thead><tbody>
+<!-- ENGINE_COVERAGE_START -->
+<tr data-engine-row data-search="postgresql postgres postgresql pg relational sql" data-runner="connected" data-tested="yes"><th scope="row">PostgreSQL<small>Relational SQL</small></th><td>SQL</td><td>EXPLAIN JSON</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status connected">Connected</span></td><td><span class="db-status tested">Live-tested</span></td></tr>
+<tr data-engine-row data-search="pgvector pgvector vector vector / rag" data-runner="connected" data-tested="no"><th scope="row">pgvector<small>Vector / RAG</small></th><td>SQL</td><td>PostgreSQL EXPLAIN + vector flags</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status connected">Connected</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="sqlite sqlite sqlite3 embedded sql" data-runner="connected" data-tested="yes"><th scope="row">SQLite<small>Embedded SQL</small></th><td>SQL</td><td>EXPLAIN QUERY PLAN</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status connected">Connected</span></td><td><span class="db-status tested">Live-tested</span></td></tr>
+<tr data-engine-row data-search="mysql / mariadb mysql mariadb relational sql" data-runner="connected" data-tested="no"><th scope="row">MySQL / MariaDB<small>Relational SQL</small></th><td>SQL</td><td>EXPLAIN FORMAT=JSON</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status connected">Connected</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="mongodb mongodb mongo document" data-runner="connected" data-tested="no"><th scope="row">MongoDB<small>Document</small></th><td>JSON find request</td><td>explain with queryPlanner verbosity</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status connected">Connected</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="dynamodb dynamodb dynamo key-value / serverless" data-runner="connected" data-tested="no"><th scope="row">DynamoDB<small>Key-value / serverless</small></th><td>JSON Query/Scan request</td><td>Request-shape rules; metadata discovery</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status connected">Connected</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="amazon redshift redshift mpp warehouse" data-runner="connected" data-tested="no"><th scope="row">Amazon Redshift<small>MPP warehouse</small></th><td>SQL</td><td>Text EXPLAIN</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status connected">Connected</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="google bigquery bigquery bq serverless warehouse" data-runner="not-wired" data-tested="no"><th scope="row">Google BigQuery<small>Serverless warehouse</small></th><td>SQL</td><td>Dry-run byte estimates (adapter contract)</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status not-wired">Not wired</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="snowflake snowflake cloud warehouse" data-runner="not-wired" data-tested="no"><th scope="row">Snowflake<small>Cloud warehouse</small></th><td>SQL</td><td>EXPLAIN USING JSON (adapter contract)</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status not-wired">Not wired</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="clickhouse clickhouse columnar olap" data-runner="not-wired" data-tested="no"><th scope="row">ClickHouse<small>Columnar OLAP</small></th><td>SQL</td><td>EXPLAIN ESTIMATE (adapter contract)</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status not-wired">Not wired</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="falkordb falkordb falkor property graph / cypher" data-runner="not-wired" data-tested="no"><th scope="row">FalkorDB<small>Property graph / Cypher</small></th><td>Cypher</td><td>GRAPH.EXPLAIN (adapter contract)</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status not-wired">Not wired</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<tr data-engine-row data-search="cassandra / scylladb cassandra scylla scylladb wide-column / cql" data-runner="not-wired" data-tested="no"><th scope="row">Cassandra / ScyllaDB<small>Wide-column / CQL</small></th><td>CQL + actual key schema</td><td>Partition-key request-shape rules</td><td><span class="db-status implemented">Implemented</span></td><td><span class="db-status not-wired">Not wired</span></td><td><span class="db-status pending">Pending</span></td></tr>
+<!-- ENGINE_COVERAGE_END -->
+    </tbody></table></div><p id="db-empty" hidden>No matching database. Try another name or show all engines.</p>
+    <div class="coverage-notes"><p><strong>The skill covers all 12.</strong> It includes native-format workflows, setup for connected runners, and preparation guides for adapters awaiting live wiring. Prepared guidance does not activate a missing integration.</p><p><strong>No database connection?</strong> Use the generic SQL DDL checker for heuristic SQL findings. JSON requests, Cypher and CQL use their own prepared review workflows.</p><p><strong>Not listed?</strong> Plain Redis and managed vector APIs such as Pinecone have no Anumana adapter in this checkout. <a href="https://github.com/sinhaKAN-ra/anumana/blob/main/SUPPORTED_ENGINES.md">See engine details ↗</a></p></div>
+  </section>
+
+  <section class="section wrap faq-section" id="faq" aria-labelledby="faq-title"><div><p class="eyebrow">A FEW GOOD QUESTIONS</p><h2 id="faq-title">Before you connect.</h2><p class="muted">Useful estimates.<br>Clear boundaries.</p></div><div class="faq-list">
+    <details><summary>Does Anumana execute my query?</summary><p>The SQL preflight tools ask the planner with EXPLAIN, never EXPLAIN ANALYZE. Anumana does not provide a query-execution tool. Live setup still requires access to your database for planning and schema discovery.</p></details>
+    <details><summary>Why use a skill if the MCP already exists?</summary><p>The MCP provides capabilities. The skill supplies a consistent workflow: inspect schema, check the candidate, review caveats, then refine. The server can be used without the skill; the skill needs access to the server’s tools for live planner checks.</p></details>
+    <details><summary>Does “cost” mean runtime or a database bill?</summary><p>For PostgreSQL, cost is the planner’s unitless estimate. It is not milliseconds or dollars. Offline checks are heuristic. Replanning can compare estimates, but cannot guarantee runtime or prove two queries return the same result.</p></details>
+    <details><summary>What am I paying for on Agensi?</summary><p>Any paid listing covers the packaged skill workflow and setup resources. The Anumana MCP server remains free and MIT licensed. Pricing will appear on the marketplace listing when it is published; no hosted service or exclusive server feature is included.</p></details>
+    <details><summary>Will the skill and server update automatically?</summary><p>The setup template pins server version 0.2.1. Upgrading requires a configuration change. Locally installed skill files also need updating; marketplace-delivered updates depend on Agensi’s installation and update flow.</p></details>
+  </div></section>
+  <section class="section wrap related-projects" id="explore-aolbeam" aria-labelledby="aolbeam-title">
+    <div class="section-heading"><div><p class="eyebrow">RELATED PROJECTS / LEARN &amp; BUILD</p><h2 id="aolbeam-title">Explore Aolbeam.</h2></div><p class="section-intro">Separate tools for learning and building. Their features are independent of Anumana’s database preflight tools.</p></div>
+    <div class="related-grid">
+      <article class="related-card"><span class="mini-label">LEARNING &amp; PRACTICE</span><h3>Aolbeam AI</h3><p>Practise maths, science, languages, humanities, business and coding with AI-generated questions, answer feedback and personal learning paths.</p><a href="https://www.aolbeam.com/practice">Explore learning and practice with Aolbeam <span aria-hidden="true">↗</span></a><p class="related-detail">AI-generated content can make mistakes. Personal learning paths require sign-in; usage limits apply.</p></article>
+      <article class="related-card"><span class="mini-label">QUESTIONS IN YOUR TERMINAL</span><h3>Ask</h3><p>A Python CLI for AI questions, code inspection and web search. Attach file context, ask about an error, or retrieve web sources from your terminal.</p><a href="https://ask.aolbeam.com">Explore the Ask Python CLI <span aria-hidden="true">↗</span></a><p class="related-detail">Uses your configured model and optional search providers. Ask does not execute generated commands or edit your code.</p></article>
+    </div>
+  </section>
+  <section class="closing wrap"><span class="brand-mark" aria-hidden="true">a<span>↗</span></span><h2>A little foresight.<br>A better query.</h2><div class="actions"><a class="button primary" href="#get-started">Get started <span aria-hidden="true">↗</span></a><a class="button secondary" href="https://github.com/sinhaKAN-ra/anumana">Explore the project ↗</a></div></section>
+</main>
+<footer class="footer"><div class="wrap footer-inner"><a class="brand" href="#">anumana<span class="brand-dot">.</span></a><p>Inference before execution. Built by Karan Sinha.</p><nav aria-label="Footer navigation"><a href="https://github.com/sinhaKAN-ra/anumana">GitHub</a><a href="https://pypi.org/project/anumana-mcp/">PyPI</a><a href="https://www.agensi.io/">Agensi</a><a href="#explore-aolbeam">Explore Aolbeam</a><a href="/llms.txt">AI overview</a><a href="https://github.com/sinhaKAN-ra/anumana/blob/main/LICENSE">MIT license</a></nav></div></footer>
+<div class="toast" id="copy-status" role="status" aria-live="polite"></div>
+<!-- Existing Vercel analytics integrations. -->
+<script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); }; window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };</script>
 <script defer src="/_vercel/insights/script.js"></script>
-
-<!-- Vercel Speed Insights — separate from Web Analytics -->
-<script>
-  window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
-</script>
 <script defer src="/_vercel/speed-insights/script.js"></script>
-
 </body>
 </html>

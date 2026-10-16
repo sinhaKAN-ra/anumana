@@ -1,0 +1,89 @@
+# Anumana
+
+> An open-source MCP server for understanding database query plans, estimated
+> costs and access patterns before executing a candidate query.
+
+Canonical website: https://anumana.aolbeam.com/
+Audience: developers, database practitioners, and AI coding agents drafting or
+reviewing SQL, pgvector similarity searches and other supported native requests.
+The website is documentation and setup guidance, not a hosted database service.
+
+## What Anumana does
+
+- Reads real schema, indexes and cached statistics where the engine exposes them.
+- Uses planner-only operations such as PostgreSQL EXPLAIN to assess estimated
+  work, scan strategy, risk tiers and overhead flags without executing candidates.
+- Checks pgvector patterns including full-vector scans, excessive top-k,
+  unbounded searches and metadata/filter interactions.
+- Proposes candidate refinements and compares available planner estimates;
+  semantic equivalence and actual runtime are not guaranteed.
+- Provides plain-English explanations of query plans.
+- Offers preflight_schema_only for limited heuristic SQL checks against supplied
+  CREATE TABLE / CREATE INDEX DDL without a database connection.
+- Includes a prepared agent skill with engine-specific workflows, connection
+  templates, explicit readiness states and incremental verification checklists.
+
+## Start here
+
+- [Installation and local MCP configuration](https://anumana.aolbeam.com/#get-started):
+  Configure a local server in an MCP-compatible agent; use your own read-only
+  database connection for live checks. The baseline template pins 0.2.1.
+- [How preflight works](https://anumana.aolbeam.com/#how-it-works):
+  Read schema, draft a native query, inspect the plan, then refine and recheck.
+- [Query examples](https://anumana.aolbeam.com/#examples):
+  Illustrative PostgreSQL, vector-search and offline DDL scenarios, not live results.
+- [Agent skill](https://anumana.aolbeam.com/#skill):
+  The MCP supplies tools; the skill supplies their usage workflow. The Agensi
+  listing is planned, not yet a published download or purchase link.
+- [Skill setup](https://anumana.aolbeam.com/#use-skill):
+  Keep SKILL.md and supporting resources together; server registration is separate.
+- [Database readiness](https://anumana.aolbeam.com/#engines):
+  Full list with adapter implementation, connected-runner and live-testing states.
+
+## Documentation and package
+
+- [Source and README](https://github.com/sinhaKAN-ra/anumana)
+- [MCP tool contract](https://github.com/sinhaKAN-ra/anumana/blob/main/TOOL_SURFACE.md)
+- [Engine status](https://github.com/sinhaKAN-ra/anumana/blob/main/SUPPORTED_ENGINES.md)
+- [Published Python package](https://pypi.org/project/anumana-mcp/)
+- [Issues](https://github.com/sinhaKAN-ra/anumana/issues)
+- [MIT license](https://github.com/sinhaKAN-ra/anumana/blob/main/LICENSE)
+
+Repository documentation can differ from unreleased local work. Inspect the
+installed tool signatures and current engine status before relying on a feature.
+MCP tool names: describe_schema_tool, preflight_query, preflight_vector_search,
+preflight_schema_only, rewrite_query, suggest_query, explain_query_working,
+list_targets, list_policies.
+
+## Readiness and limitations
+
+The site's development-checkout catalog covers 12 adapter families; this is NOT
+12 verified live integrations or a published-release compatibility guarantee.
+
+- PostgreSQL and SQLite have live test evidence for tested paths.
+- pgvector, MySQL/MariaDB, MongoDB, DynamoDB and Amazon Redshift have connected
+  runner paths with live verification pending.
+- BigQuery, Snowflake, ClickHouse, FalkorDB and Cassandra/ScyllaDB have adapter
+  code and prepared guidance but no live MCP runner in the current checkout.
+- SQL preflight uses EXPLAIN, never EXPLAIN ANALYZE. There is no query execution
+  tool. MongoDB schema discovery samples a document; it is not metadata-only.
+- PostgreSQL planner cost is unitless, not milliseconds or dollars. SQLite,
+  MongoDB and DynamoDB checks are heuristic access-pattern assessments.
+- No guaranteed runtime, cost savings, SQL equivalence, ANN recall, or validated
+  cloud billing. Adding LIMIT or switching to ANN can change results.
+- HypoPG verification is optional development functionality requiring an already
+  installed extension; it does not create real indexes. End-to-end live HypoPG
+  verification remains pending. Do not assume unreleased features ship in 0.2.1.
+- Keep database credentials local and out of chat, source control and reports.
+
+## Related projects (separate products)
+
+- [Aolbeam AI — learning and practice](https://www.aolbeam.com/practice):
+  Practise maths, science, languages, humanities, business and coding with
+  AI-generated questions, answer feedback and personal learning paths.
+  Learning paths require sign-in; usage limits apply; AI content can make mistakes.
+- [Ask](https://ask.aolbeam.com): A Python CLI for AI questions, code inspection
+  and web search, using configured model/search providers. It does not execute
+  generated commands or edit code.
+
+These related products do not provide features of the Anumana MCP server.

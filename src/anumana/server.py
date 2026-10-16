@@ -80,15 +80,8 @@ def _runner_for(target_name: str | None):
 
 
 def _pg_runner(dsn: str):
-    import psycopg  # lazy — only when a PG target is actually used
-
-    def run_sql(sql: str):
-        with psycopg.connect(dsn, autocommit=True) as conn:
-            with conn.cursor() as cur:
-                cur.execute(sql)  # EXPLAIN / catalog read only — never agent DML
-                return [row[0] if len(row) == 1 else row for row in cur.fetchall()]
-
-    return run_sql
+    from anumana.postgres_runner import PostgresRunner
+    return PostgresRunner(dsn)
 
 
 def _mongo_runner(uri: str | None):
@@ -117,13 +110,11 @@ def _mongo_runner(uri: str | None):
                         "est_count": coll.estimated_document_count(),
                     })
                 return [{"collections": collections}]
-            # a query: {"find":"coll","filter":{...}} -> explain the find plan only
-            spec = json.loads(cmd)
-            coll = db[spec["find"]]
-            cur = coll.find(spec.get("filter", {}), spec.get("projection"))
-            if spec.get("limit"):
-                cur = cur.limit(int(spec["limit"]))
-            return [cur.explain()]  # queryPlanner — does NOT run the query
+            from anumana.adapters.mongodb import parse_find_request
+            spec = parse_find_request(cmd)
+            # PyMongo Cursor.explain defaults to allPlansExecution: explicitly
+            # use queryPlanner so the candidate is never executed for stats.
+            return [db.command({"explain": spec, "verbosity": "queryPlanner"})]
         finally:
             client.close()  # don't leak a connection pool per call
 
@@ -142,7 +133,8 @@ def _dynamo_runner(region: str | None, profile: str | None):
         session = boto3.Session(profile_name=profile, region_name=region)
         ddb = session.client("dynamodb")
         tables = []
-        for name in ddb.list_tables().get("TableNames", []):
+        for name in (name for page in ddb.get_paginator("list_tables").paginate()
+                     for name in page.get("TableNames", [])):
             d = ddb.describe_table(TableName=name)["Table"]
             ks = {}
             for k in d.get("KeySchema", []):
@@ -158,15 +150,20 @@ def _dynamo_runner(region: str | None, profile: str | None):
 
 
 def _sqlite_runner(path: str | None):
-    """Live SQLite runner — opens the .db file READ-ONLY (immutable URI) so the
+    """Live SQLite runner — opens the .db file READ-ONLY (mode=ro URI) so the
     agent's query can never write. EXPLAIN QUERY PLAN + PRAGMA catalog reads only."""
     if not path:
         raise RuntimeError("SQLite target has no 'path' (or 'dsn') in its config.")
 
     def run_sql(sql: str):
         import sqlite3  # stdlib — always available
-        # read-only open: file: URI with mode=ro, so no write can occur.
-        uri = f"file:{path}?mode=ro" if not str(path).startswith("file:") else path
+        from pathlib import Path
+        from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+        uri = str(path) if str(path).startswith("file:") else Path(path).resolve().as_uri()
+        parts = urlsplit(uri)
+        options = [(k, v) for k, v in parse_qsl(parts.query) if k != "mode"]
+        options.append(("mode", "ro"))
+        uri = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(options), parts.fragment))
         conn = sqlite3.connect(uri, uri=True)
         try:
             return conn.execute(sql).fetchall()  # EXPLAIN QUERY PLAN / PRAGMA only
@@ -184,12 +181,14 @@ def _mysql_runner(dsn: str | None):
 
     def run_sql(sql: str):
         import pymysql  # lazy — only when a MySQL target is actually used
-        from urllib.parse import urlparse
+        from urllib.parse import urlparse, unquote
         u = urlparse(dsn)
+        if u.scheme not in {"mysql", "mariadb"}:
+            raise ValueError("Expected a mysql:// or mariadb:// DSN")
         conn = pymysql.connect(
             host=u.hostname or "127.0.0.1", port=u.port or 3306,
-            user=u.username, password=u.password or "",
-            database=(u.path or "/").lstrip("/") or None,
+            user=unquote(u.username or ""), password=unquote(u.password or ""),
+            database=unquote((u.path or "/").lstrip("/")) or None,
             connect_timeout=3, read_default_group=None,
         )
         try:
@@ -253,7 +252,7 @@ if FastMCP is not None:
             run_sql, engine = _runner_for(target)
             pf = preflight(run_sql, sql, engine=engine).to_dict()
             verdict = policies().evaluate(
-                target=target, engine=engine, risk=pf["risk_tier"],
+                target=registry().get(target).name, engine=engine, risk=pf["risk_tier"],
                 flag_codes={f["code"] for f in pf["flags"]},
             )
             pf["policy"] = verdict.to_dict()
@@ -272,15 +271,23 @@ if FastMCP is not None:
         filter/ANN recall loss (VECTOR_FILTER_INTERACTION). EXPLAIN only. Pass
         target=<name> in a multi-DB setup; the target should be a pgvector engine."""
         try:
-            run_sql, _ = _runner_for(target)
-            return _dumps(preflight(run_sql, sql, engine="pgvector").to_dict())
+            run_sql, engine = _runner_for(target)
+            if engine not in {"pgvector", "vector"}:
+                raise ValueError("Vector preflight requires a pgvector target")
+            pf = preflight(run_sql, sql, engine="pgvector").to_dict()
+            verdict = policies().evaluate(
+                target=registry().get(target).name, engine="pgvector", risk=pf["risk_tier"],
+                flag_codes={f["code"] for f in pf["flags"]},
+            )
+            pf["policy"] = verdict.to_dict()
+            return _dumps(pf)
         except Exception as e:
             return _err(e)
 
     @mcp.tool()
     def rewrite_query(sql: str, target: str = None) -> str:  # type: ignore[assignment]
-        """Rewrite a slow query into a cheaper, equivalent one and PROVE the
-        improvement by EXPLAIN-ing both and comparing planner cost. Call after a
+        """Propose a cheaper candidate and compare planner costs when available.
+        Replanning does not prove semantic equivalence: review caveats. Call after a
         preflight flags a query expensive/dangerous. Returns the rewritten query,
         what changed, before/after cost, and index suggestions — ONLY suggesting a
         btree index when the filter is selective enough to help (an HNSW index for
@@ -339,7 +346,7 @@ if FastMCP is not None:
             run_sql, engine = _runner_for(target)
             v = _engine_suggest_query(run_sql, intent, candidate_sql, engine=engine)
             verdict = policies().evaluate(
-                target=target, engine=engine, risk=v["risk_tier"],
+                target=registry().get(target).name, engine=engine, risk=v["risk_tier"],
                 flag_codes={f["code"] for f in v["flags"]},
             )
             v["policy"] = verdict.to_dict()

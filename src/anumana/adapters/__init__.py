@@ -16,8 +16,8 @@ not "every database".
     PgVectorAdapter  Postgres + pgvector (RAG)      EXPLAIN on a vector search ✅ built
     MongoAdapter     MongoDB (document)             explain(queryPlanner)     ✅ built
     DynamoAdapter    DynamoDB (serverless AI)       rule-based (no planner)   ✅ built
-    SqliteAdapter    SQLite (text-to-SQL base)      EXPLAIN QUERY PLAN         ○ roadmap
-    MysqlAdapter     MySQL/MariaDB                  EXPLAIN FORMAT=JSON        ○ roadmap
+    SqliteAdapter    SQLite (text-to-SQL base)      EXPLAIN QUERY PLAN         ✅ built
+    MysqlAdapter     MySQL/MariaDB                  EXPLAIN FORMAT=JSON        ✅ built
 """
 from anumana.adapters.base import Adapter, PlanResult, EngineMetrics
 from anumana.adapters.postgres import PostgresAdapter
@@ -94,7 +94,7 @@ def get_adapter(engine: str = "postgres") -> Adapter:
         raise ValueError(
             f"No Anumana adapter for engine {engine!r}. "
             f"Supported: {supported}. "
-            f"SQLite/MySQL/Mongo/DynamoDB are on the roadmap (see DESIGN.md)."
+            f"See SUPPORTED_ENGINES.md for live-runner and verification status."
         )
     inst = _INSTANCES.get(cls)
     if inst is None:

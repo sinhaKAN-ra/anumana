@@ -46,6 +46,11 @@ class PlanResult:
     nodes: list[dict]            # flattened, normalized plan nodes (depth-first)
     metrics: EngineMetrics
     has_live_stats: bool = True  # False in schema-only / rule-based modes
+    has_cost_estimate: bool = True
+
+    def __post_init__(self):
+        if not self.has_live_stats:
+            self.has_cost_estimate = False
 
 
 @dataclass

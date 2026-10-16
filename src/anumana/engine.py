@@ -21,6 +21,7 @@ from typing import Any, Callable, Literal
 
 from anumana.adapters import get_adapter
 from anumana.adapters.base import Adapter, EngineFlag
+from anumana.sql_text import bounded_candidate, quote_identifier
 
 AccuracyTier = Literal["PRECISE", "UPPER_BOUND", "HEURISTIC"]
 RiskTier = Literal["cheap", "moderate", "expensive", "dangerous"]
@@ -41,6 +42,8 @@ class Preflight:
     flags: list[Flag]
     human_summary: str
     has_rewrite: bool
+    row_estimates_available: bool = True
+    planner_cost_available: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -74,17 +77,21 @@ def preflight(run_sql: Callable[[str], list], sql: str,
     m = plan.metrics
 
     risk = _risk(m.total_cost, m.rows_scanned, flags)
-    accuracy: AccuracyTier = "UPPER_BOUND" if has_live_stats else "HEURISTIC"
+    accuracy: AccuracyTier = "UPPER_BOUND" if has_live_stats and plan.has_live_stats else "HEURISTIC"
     summary = (
         f"[{adapter.label}] Scans ~{m.rows_scanned:,} rows to return ~{m.rows_returned:,}. "
         f"Strategy: {m.strategy[0] if m.strategy else 'unknown'}. "
         f"Risk: {risk}."
     )
+    if not plan.has_live_stats:
+        summary = (f"[{adapter.label}] Access pattern only; row counts and planner "
+                   f"cost are unavailable. Strategy: {m.strategy[0] if m.strategy else 'unknown'}. Risk: {risk}.")
     return Preflight(
         engine=adapter.name, risk_tier=risk, accuracy_tier=accuracy,
         rows_scanned_est=m.rows_scanned, rows_returned_est=m.rows_returned,
         scan_strategy=m.strategy, planner_total_cost=m.total_cost,
         flags=flags, human_summary=summary, has_rewrite=bool(flags),
+        row_estimates_available=plan.has_live_stats, planner_cost_available=plan.has_cost_estimate,
     )
 
 
@@ -106,17 +113,20 @@ class Rewrite:
     rewritten_sql: str
     changes: list[str]
     cost_before: float
-    cost_after: float
-    cost_delta_pct: float
+    cost_after: float | None
+    cost_delta_pct: float | None
     accuracy_tier: AccuracyTier
     index_suggestions: list[dict] = field(default_factory=list)
     equivalence_caveats: list[str] = field(default_factory=list)
+    rewrite_verified: bool = False
+    verified_cheaper: bool = False
+    verification_note: str = ""
 
 
 def rewrite(run_sql: Callable[[str], list], sql: str,
             has_live_stats: bool = True,
             engine: str | Adapter = "postgres") -> Rewrite | None:
-    """Produce a cheaper, equivalent query and PROVE the delta via EXPLAIN."""
+    """Propose advisory changes and report planner verification independently of semantics."""
     adapter = _resolve(engine)
     pf = preflight(run_sql, sql, has_live_stats, engine=adapter)
     if not pf.flags:
@@ -129,50 +139,118 @@ def rewrite(run_sql: Callable[[str], list], sql: str,
     if _SELECT_STAR.search(new_sql):
         changes.append("Replace SELECT * with the columns actually projected "
                        "(fill in — Anumana cannot know downstream usage).")
-    if not _HAS_LIMIT.search(new_sql):
-        new_sql = new_sql.rstrip(";\n ") + "\nLIMIT 100"
-        changes.append("Added LIMIT 100 to bound the result.")
-        caveats.append("LIMIT changes row count — confirm the caller wanted all rows.")
+    if adapter.name in {"postgres", "pgvector", "sqlite", "mysql"}:
+        candidate = bounded_candidate(new_sql)
+        if candidate:
+            new_sql = candidate
+            changes.append("Proposed LIMIT 100 to bound the result (advisory).")
+            caveats.append("LIMIT changes row count — confirm the caller wanted all rows.")
 
     cost_before = pf.planner_total_cost
-    try:
-        cost_after = float(adapter.get_plan(run_sql, new_sql).metrics.total_cost)
-    except Exception:
-        cost_after = cost_before
-    delta = round((cost_after - cost_before) / cost_before * 100, 1) if cost_before else 0.0
+    cost_after = None
+    verified = False
+    note = "No candidate change; no cheaper rewrite was verified."
+    if new_sql != sql:
+        try:
+            after_plan = adapter.get_plan(run_sql, new_sql)
+            if after_plan.has_cost_estimate and pf.planner_cost_available:
+                cost_after = float(after_plan.metrics.total_cost)
+                verified = True
+                note = "Candidate replanned; semantic equivalence is not proven."
+            else:
+                note = "Candidate plan checked; numeric planner costs are unavailable."
+        except Exception as exc:
+            note = f"Candidate planning failed ({type(exc).__name__}); no cost improvement verified."
+    delta = round((cost_after - cost_before) / cost_before * 100, 1) if cost_before and cost_after is not None else None
 
     index_sugg: list[dict] = []
-    for f in pf.flags:
-        if f.code not in ("SEQ_SCAN_LARGE", "MISSING_INDEX", "FULL_VECTOR_SCAN"):
-            continue
-        if f.code == "FULL_VECTOR_SCAN":
-            index_sugg.append({
-                "ddl": "CREATE INDEX ON <table> USING hnsw (<embedding_col> vector_cosine_ops);",
-                "kind": "vector (HNSW)",
-                "note": "No selectivity gate for vector indexes — a brute-force "
-                        "similarity scan is always worse than ANN as the collection grows.",
-            })
-            continue
-        if _is_selective(pf.rows_returned_est, pf.rows_scanned_est):
-            index_sugg.append({
-                "ddl": f.detail,
-                "kind": "btree",
-                "selectivity_ok": True,
-                "note": f"filter returns ~{pf.rows_returned_est:,} of "
-                        f"~{pf.rows_scanned_est:,} rows — selective enough for an index to win.",
-            })
-        else:
-            caveats.append(
-                f"NOT suggesting an index: the filter matches ~{pf.rows_returned_est:,} "
-                f"of ~{pf.rows_scanned_est:,} rows (not selective) — the planner would "
-                f"correctly ignore an index and scan anyway. Narrow the filter instead."
-            )
+    if adapter.name == "postgres":
+        index_sugg = _postgres_index_suggestions(run_sql, sql, adapter)
+    elif adapter.name == "pgvector" and any(f.code == "FULL_VECTOR_SCAN" for f in pf.flags):
+        index_sugg = _vector_index_suggestions(run_sql, sql, adapter)
+    # Index verification uses original SQL, independently of advisory LIMIT.
     return Rewrite(
         rewritten_sql=new_sql, changes=changes or ["No safe automatic rewrite; see flags."],
         cost_before=cost_before, cost_after=cost_after, cost_delta_pct=delta,
-        accuracy_tier="UPPER_BOUND" if has_live_stats else "HEURISTIC",
+        accuracy_tier=pf.accuracy_tier,
         index_suggestions=index_sugg, equivalence_caveats=caveats,
+        rewrite_verified=verified, verified_cheaper=verified and cost_after < cost_before,
+        verification_note=note,
     )
+
+
+_SIMPLE_FILTER = re.compile(
+    r"\(*\s*(?:(?P<qualifier>[A-Za-z_][A-Za-z_0-9]*|\"(?:[^\"]|\"\")+\")\.)?"
+    r"(?P<column>[A-Za-z_][A-Za-z_0-9]*|\"(?:[^\"]|\"\")+\")"
+    r"\s*(?:=|>=|<=|>|<)\s*(?:-?\d+(?:\.\d+)?|'(?:[^']|'')*')"
+    r"(?:::[A-Za-z_][A-Za-z_0-9]*(?:\[\])?)?\s*\)*"
+)
+
+
+def _postgres_index_suggestions(run_sql, sql, adapter):
+    plan = adapter.get_plan(run_sql, sql)
+    suggestions = []
+    seen = set()
+    for node in plan.nodes:
+        if node.get("Node Type") != "Seq Scan" or not node.get("Relation Name"):
+            continue
+        total = node.get("_relation_rows", 0)
+        if not total or not _is_selective(node.get("Plan Rows", 0), total):
+            continue
+        match = _SIMPLE_FILTER.fullmatch(node.get("Filter", ""))
+        if not match:
+            continue
+        qualifier = match["qualifier"]
+        if qualifier:
+            qualifier = qualifier[1:-1].replace('""', '"') if qualifier.startswith('"') else qualifier
+            if qualifier not in {node.get("Alias"), node["Relation Name"]}:
+                continue
+        col = match["column"]
+        col = col[1:-1].replace('""', '"') if col.startswith('"') else col
+        ddl = (f"CREATE INDEX ON {quote_identifier(node.get('Schema', 'public'))}."
+               f"{quote_identifier(node['Relation Name'])} ({quote_identifier(col)})")
+        if ddl in seen:
+            continue
+        seen.add(ddl)
+        proposal = {"ddl": ddl, "kind": "btree", "selectivity_ok": True,
+                    "simulation_status": "unavailable", "verified_cheaper": False,
+                    "note": "HypoPG-capable live runner required to verify index benefit."}
+        simulate = getattr(run_sql, "simulate_index", None)
+        if callable(simulate):
+            try:
+                proposal.update(simulate(sql, ddl))
+            except Exception as exc:
+                proposal.update(simulation_status="failed", verified_cheaper=False,
+                                note=f"HypoPG verification failed ({type(exc).__name__}); no improvement verified.")
+        suggestions.append(proposal)
+    return suggestions
+
+
+_VECTOR_ORDER = re.compile(
+    r'\bORDER\s+BY\s+(?:(?P<qualifier>[A-Za-z_][A-Za-z_0-9]*)\.)?'
+    r'(?P<column>[A-Za-z_][A-Za-z_0-9]*)\s*(?P<operator><=>|<->|<#>)', re.I
+)
+
+
+def _vector_index_suggestions(run_sql, sql, adapter):
+    # Only simple direct distance ordering on one known relation is supported.
+    # No placeholder DDL and no assumption that every query uses cosine.
+    from anumana.sql_text import mask_sql
+    match = _VECTOR_ORDER.search(mask_sql(sql))
+    if not match:
+        return []
+    plan = adapter.get_plan(run_sql, sql)
+    scans = [n for n in plan.nodes if n.get("Relation Name")]
+    relations = {(n.get("Schema", "public"), n["Relation Name"]) for n in scans}
+    if len(relations) != 1:
+        return []
+    if match["qualifier"] and not any(match["qualifier"] in {n.get("Alias"), n["Relation Name"]} for n in scans):
+        return []
+    schema, table = next(iter(relations))
+    opclass = {"<=>": "vector_cosine_ops", "<->": "vector_l2_ops", "<#>": "vector_ip_ops"}[match["operator"]]
+    return [{"ddl": f"CREATE INDEX ON {quote_identifier(schema)}.{quote_identifier(table)} USING hnsw ({quote_identifier(match['column'])} {opclass})",
+             "kind": "vector (HNSW)", "simulation_status": "unsupported", "verified_cheaper": False,
+             "note": "HypoPG does not simulate HNSW. Review vector type, metric and approximate-search recall before creating an index."}]
 
 
 # ---- explain_working: two-layer "how the query behaves" ---------------------
@@ -237,7 +315,7 @@ def explain_working(run_sql: Callable[[str], list], sql: str,
     return ExplainWorking(
         engine=adapter.name, logical_order=logical, physical_plan=physical,
         headline=adapter.headline(plan),
-        accuracy_tier="UPPER_BOUND" if has_live_stats else "HEURISTIC",
+        accuracy_tier="UPPER_BOUND" if has_live_stats and plan.has_live_stats else "HEURISTIC",
     )
 
 
@@ -352,4 +430,11 @@ def suggest_query(run_sql: Callable[[str], list], intent: str, candidate_sql: st
         next_action="accept" if accept else "refine",
         accuracy_tier=pf.accuracy_tier,
     )
-    return verdict.to_dict()
+    result = verdict.to_dict()
+    result["rewrite_verified"] = rw.rewrite_verified if rw else False
+    result["verified_cheaper"] = rw.verified_cheaper if rw else False
+    result["verification_note"] = rw.verification_note if rw else "No rewrite proposed."
+    result["equivalence_caveats"] = rw.equivalence_caveats if rw else []
+    result["row_estimates_available"] = pf.row_estimates_available
+    result["planner_cost_available"] = pf.planner_cost_available
+    return result

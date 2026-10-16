@@ -26,6 +26,8 @@ unchanged — this file only teaches Anumana how to READ SQLite's cost signal.
 from __future__ import annotations
 
 import re
+
+from anumana.sql_text import single_statement, quote_identifier
 from typing import Callable
 
 from anumana.adapters.base import (
@@ -56,7 +58,7 @@ class SqliteAdapter:
     verified_live = True  # tested end-to-end against a real seeded .db this session
 
     def get_plan(self, run_sql: Callable[[str], list], query: str) -> PlanResult:
-        rows = run_sql(f"EXPLAIN QUERY PLAN {query}")
+        rows = run_sql(f"EXPLAIN QUERY PLAN {single_statement(query)}")
         # rows: list of (id, parent, notused, detail) tuples (or dict-ish)
         details: list[str] = []
         for r in rows:
@@ -185,21 +187,22 @@ class SqliteAdapter:
                 row.get("name") if isinstance(row, dict) else str(row))
             cols, idxs = [], []
             try:
-                for ci in run_sql(f"PRAGMA table_info({tname})"):
+                for ci in run_sql(f"PRAGMA table_info({quote_identifier(tname)})"):
                     # PRAGMA table_info: (cid, name, type, notnull, dflt, pk)
                     c = ci if isinstance(ci, (list, tuple)) else list(ci.values())
                     cols.append({"name": c[1], "type": c[2] or "unknown"})
-                for ix in run_sql(f"PRAGMA index_list({tname})"):
+                for ix in run_sql(f"PRAGMA index_list({quote_identifier(tname)})"):
                     x = ix if isinstance(ix, (list, tuple)) else list(ix.values())
                     # index_list: (seq, name, unique, origin, partial)
                     iname = x[1]
                     icols = []
-                    for info in run_sql(f"PRAGMA index_info({iname})"):
+                    for info in run_sql(f"PRAGMA index_info({quote_identifier(iname)})"):
                         y = info if isinstance(info, (list, tuple)) else list(info.values())
                         icols.append(y[2])  # column name
                     idxs.append({"name": iname, "columns": icols, "kind": "btree"})
-            except Exception:
-                pass
+            except Exception as e:
+                return SchemaDescription(engine=self.name, accuracy="NONE",
+                    need_from_user=f"Could not inspect SQLite table metadata ({type(e).__name__}); provide DDL.")
             tables.append(SchemaTable(
                 name=tname, columns=cols, indexes=idxs, row_count=None,
                 caveats=["Row count omitted — SQLite has no cached estimate; a "

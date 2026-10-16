@@ -4,7 +4,7 @@
 > agents write. Know what a query will cost, and understand how it behaves,
 > *before* it runs.
 
-Status: v0.2 (Postgres + pgvector adapters built, verified on synthetic plans).
+Status: published package v0.2.1; core-roadmap improvements below are unreleased.
 Audience for this doc: the maintainer (future self) and contributors.
 
 ---
@@ -45,7 +45,7 @@ traffic:
 |---|---|---|---|
 | **P0 — built** | text-to-SQL | Postgres | the #1 agentic-query pattern |
 | **P0 — built** | RAG / vector search | pgvector | RAG is the dominant AI workload; rides the PG plan path |
-| **P1 — roadmap** | text-to-SQL base | SQLite, MySQL/MariaDB | students/vibe coders use SQLite; same mechanism, new parser |
+| **P1 — implemented** | text-to-SQL base | SQLite, MySQL/MariaDB | students/vibe coders use SQLite; same mechanism, new parser |
 | **P2 — built** | NoSQL agents touch | MongoDB | `explain(queryPlanner)` → COLLSCAN vs IXSCAN, access-pattern diagnosis |
 | **P2 — built** | serverless AI backends | DynamoDB | rule-based: no partition key = full Scan; surprise bills |
 | **out of scope** | KV / graph | Redis, Neo4j, Cassandra | no pre-run cost concept to foresee — we refuse to fake one |
@@ -86,7 +86,7 @@ engine.
                                  │ Adapter contract
          ┌───────────────────────┼───────────────────────┐
          ▼                       ▼                        ▼
-  PostgresAdapter         PgVectorAdapter          SqliteAdapter … (roadmap)
+  PostgresAdapter         PgVectorAdapter          SqliteAdapter …
   EXPLAIN JSON            EXPLAIN JSON +            EXPLAIN QUERY PLAN
                           vector-specific flags
 ```
@@ -159,44 +159,50 @@ search. Same `server.py` works in every MCP client; publish once to PyPI
 
 ---
 
-## 7. Known rough edges (fix before/soon after publish)
+## 7. Core roadmap implementation (unreleased)
 
-- `explain_working` headline tie-breaks onto the wrong node on *synthetic*
-  equal-cost plans (picks `Limit` over `Seq Scan`). Correct on real plans where
-  the scan cost dominates. Cosmetic-on-fake-data; worth a real-cost tie-break.
-- `hypopg` index simulation is referenced but not yet wired (would let the
-  rewrite *prove* an index's benefit, not just suggest it).
-- Mongo/Dynamo live runners are wired but UNtested against a real server (none
-  available here) — adapter + driver glue are verified only on canned docs.
-  Smoke-test against a live Atlas / DynamoDB table before relying on them.
+- SQLite and MySQL/MariaDB adapters and server runners are implemented. SQLite
+  has automated end-to-end coverage against a temporary database, including
+  quoted identifiers and enforced read-only file URIs. MySQL has a driver extra
+  (`pip install 'anumana-mcp[mysql]'`), decoded DSNs and MySQL/MariaDB fixtures.
+- MongoDB explicitly uses queryPlanner verbosity, never PyMongo's execution
+  statistics default. Classic, SBE, branching and sharded winning-plan stages
+  are recognized. Empty/unknown plans fail instead of looking cheap.
+- DynamoDB request parsing uses JSON fields, not substring matches. Metadata
+  discovery follows ListTables pagination. Query/Scan assessment remains an
+  offline request-shape heuristic, not a key-validity or capacity-cost proof.
+- Rewrite results expose failed/unavailable verification and semantic caveats.
+  SQL LIMIT proposals are advisory and restricted to simple SELECT statements;
+  non-SQL requests are never altered with SQL suffixes.
+- Optional PostgreSQL HypoPG verification compares the original SQL before and
+  after a hypothetical btree index in one dedicated connection. Proposals require
+  a recognized simple predicate and catalog-backed selectivity. The extension
+  must already be installed; no real index/extension is created by Anumana.
+- Simple vector index proposals use the real relation/column and match the
+  cosine, L2 or inner-product operator; HNSW benefits remain unverified.
+- PostgreSQL explanation headlines rank local operator cost, avoiding cumulative
+  Limit-wrapper ties. Heuristic engines no longer claim live row counts.
+- Generic and vector preflight apply policies to the resolved target, including
+  implicit selection of a single configured database.
 
-## 7a. Tests & performance
+## 8. Validation and remaining release gates
 
-- **pytest suite** in `tests/` (`conftest.py` fixtures + `test_engine.py` /
-  `test_adapters.py` / `test_generative.py`) covers every adapter and all four
-  generative phases with canned EXPLAIN/explain docs — **zero DB, zero drivers**,
-  CI-safe. Run: `pip install -e ".[dev]" && pytest`. (The 26 assertions were also
-  verified via a pytest-free shim in the environment where pytest wasn't installed.)
-- **Memory posture** — a light regex/dict library; the real footprint is the
-  interpreter + DB drivers, not Anumana. Optimizations applied: adapters are
-  **cached singletons** (`get_adapter` reuses one stateless instance per class);
-  DB drivers are **lazy-imported** per runner AND **optional extras**, so a
-  Postgres-only user never loads `pymongo`/`boto3`; pgvector index detection
-  collects only index-name fields instead of stringifying the whole plan.
+Run `.venv/bin/python -m pytest tests/` (after installing the dev dependencies).
+Default checks use synthetic plans plus a real temporary SQLite database and
+require no database credentials. Opt-in live checks are in `tests/test_live.py`;
+setup and exact environment variables are in `docs/LIVE_VERIFICATION.md`.
 
----
+A disposable PostgreSQL instance verified real filtered row estimates, SELECT
+replanning, and the explicit missing-HypoPG fallback. HypoPG session isolation,
+parameterized DDL and cleanup are covered by runner regression tests; a live
+HypoPG installation is still needed to verify the extension end to end.
 
-## 8. Roadmap (in scope order)
-
-1. **SQLite adapter** (`EXPLAIN QUERY PLAN`) — the text-to-SQL base for students.
-2. **MySQL adapter** (`EXPLAIN FORMAT=JSON`) — widen the text-to-SQL base.
-3. **hypopg** wiring — simulate the suggested index and report the real delta.
-4. **explain_working tie-break** fix on real-cost dominance.
-5. **Live smoke tests** for Mongo/Dynamo against a real Atlas / DynamoDB table.
-
-Built in v0.2: SQL + pgvector + **MongoDB** + **DynamoDB** adapters; generative
-mode **all four phases** (describe_schema, suggest_query, multi-DB registry,
-policy layer); live Mongo/Dynamo runners; pytest suite; memory optimizations.
+Remaining gates: live MySQL/MariaDB, MongoDB and DynamoDB smoke checks; live
+HypoPG extension verification; pgvector recall/index behavior validation. Cloud
+and other engines without server runners remain outside this core-roadmap pass.
+Do not promote these engines to LIVE based on mocks. No package version bump or
+publication is included. Update the marketplace skill and its pinned server
+version after a release containing these changes is published.
 
 ---
 

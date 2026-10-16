@@ -26,9 +26,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+mysql = ["PyMySQL>=1.1"]
 mongodb = ["pymongo>=4.0"]
 dynamodb = ["boto3>=1.28"]
-all = ["pymongo>=4.0", "boto3>=1.28"]
+all = ["pymongo>=4.0", "boto3>=1.28", "PyMySQL>=1.1"]
 
 [project.urls]
 Homepage = "https://github.com/sinhaKAN-ra/anumana"

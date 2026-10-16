@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "anumana": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "REPLACE_WITH_ANUMANA_CHECKOUT",
+        "run",
+        "--no-sync",
+        "anumana-mcp"
+      ],
+      "env": {
+        "ANUMANA_TARGETS": "[{\"name\":\"mongo_db\",\"engine\":\"mongodb\",\"uri\":\"REPLACE_WITH_MONGODB_URI_INCLUDING_DATABASE\"}]"
+      }
+    }
+  }
+}

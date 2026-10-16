@@ -27,17 +27,10 @@ is False and accuracy is HEURISTIC: we judge the ACCESS PATTERN, not item counts
 from __future__ import annotations
 
 import json
-import re
 from typing import Callable
 
 from anumana.adapters.base import Adapter, EngineFlag, EngineMetrics, PlanResult
 
-_KEY_COND = re.compile(r"keycondition", re.I)
-_FILTER = re.compile(r"filterexpression", re.I)
-_OP = re.compile(r'"op"\s*:\s*"(\w+)"', re.I)
-_TABLE = re.compile(r'"tablename"\s*:\s*"([^"]+)"', re.I)
-_INDEX = re.compile(r'"indexname"\s*:\s*"([^"]+)"', re.I)
-_LIMIT = re.compile(r'"limit"\s*:\s*(\d+)', re.I)
 
 
 class DynamoAdapter:
@@ -93,8 +86,9 @@ class DynamoAdapter:
         if req["op"].lower() == "scan" and not req.get("limit"):
             flags.append(EngineFlag(
                 "DYNAMO_UNBOUNDED_SCAN",
-                "A Scan with no Limit pages through the entire table — unbounded "
-                "read-capacity consumption. Add a Limit, or (better) make it a Query.",
+                "No Limit bounds evaluated items per Scan request (subject to the "
+                "1 MB page cap). Following LastEvaluatedKey can read the full table; "
+                "a Limit does not bound total work across pages.",
                 "medium",
             ))
         if req.get("limit") and req["limit"] > 1000:
@@ -122,7 +116,8 @@ class DynamoAdapter:
                     "the table grows and is the #1 cause of surprise DynamoDB bills. "
                     "Add a key/GSI for this access pattern and use Query.")
         return ("Good — this is a Query against the partition key, so DynamoDB reads "
-                "only the items you asked for (the efficient, predictable-cost path).")
+                "a key range. This is a request-shape heuristic; key validity, item sizes, "
+                "pagination and read capacity have not been verified.")
 
     def describe_schema(self, run_sql) -> "object":
         """DynamoDB has no columns to list, but the KEY SCHEMA + GSIs/LSIs ARE the
@@ -149,7 +144,7 @@ class DynamoAdapter:
         for t in doc.get("tables", []):
             ks = t.get("key_schema", {})
             idx = [{"name": "primary",
-                    "columns": [ks.get("partition_key"), ks.get("sort_key")],
+                    "columns": [v for v in (ks.get("partition_key"), ks.get("sort_key")) if v],
                     "kind": "primary"}]
             for g in t.get("gsis", []):
                 idx.append({"name": g.get("name"), "columns": g.get("keys", []),
@@ -173,18 +168,24 @@ class DynamoAdapter:
 # ---- request parsing + access classification --------------------------------
 
 def _parse(query: str) -> dict:
-    op_m = _OP.search(query)
-    table_m = _TABLE.search(query)
-    index_m = _INDEX.search(query)
-    limit_m = _LIMIT.search(query)
-    op = op_m.group(1) if op_m else ("Query" if _KEY_COND.search(query) else "Scan")
+    req = json.loads(query)
+    if not isinstance(req, dict):
+        raise ValueError("DynamoDB input must be a JSON request object")
+    op = req.get("op", "Query" if req.get("KeyConditionExpression") else "Scan")
+    if not isinstance(op, str) or op.lower() not in {"query", "scan"}:
+        raise ValueError("Only DynamoDB Query and Scan requests can be assessed")
+    if not isinstance(req.get("TableName"), str) or not req["TableName"]:
+        raise ValueError("DynamoDB TableName is required")
+    for key in ("KeyConditionExpression", "FilterExpression", "IndexName"):
+        if key in req and (not isinstance(req[key], str) or not req[key].strip()):
+            raise ValueError(f"DynamoDB {key} must be a nonempty string")
+    limit = req.get("Limit")
+    if limit is not None and (type(limit) is not int or limit <= 0):
+        raise ValueError("DynamoDB Limit must be a positive integer")
     return {
-        "op": op,
-        "table": table_m.group(1) if table_m else None,
-        "index": index_m.group(1) if index_m else None,
-        "limit": int(limit_m.group(1)) if limit_m else None,
-        "has_key_condition": bool(_KEY_COND.search(query)),
-        "has_filter": bool(_FILTER.search(query)),
+        "op": op, "table": req["TableName"], "index": req.get("IndexName"),
+        "limit": limit, "has_key_condition": bool(req.get("KeyConditionExpression")),
+        "has_filter": bool(req.get("FilterExpression")),
     }
 
 

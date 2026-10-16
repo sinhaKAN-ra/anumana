@@ -5,6 +5,8 @@ ANALYZE, read the planner's estimates, translate. No fake milliseconds.
 from __future__ import annotations
 
 import re
+
+from anumana.sql_text import single_statement
 from typing import Callable
 
 from anumana.adapters.base import Adapter, EngineFlag, EngineMetrics, PlanResult
@@ -29,7 +31,7 @@ class PostgresAdapter:
 
     # ---- plan ---------------------------------------------------------------
     def get_plan(self, run_sql: Callable[[str], list], query: str) -> PlanResult:
-        rows = run_sql(f"EXPLAIN (FORMAT JSON, VERBOSE) {query}")
+        rows = run_sql(f"EXPLAIN (FORMAT JSON, VERBOSE) {single_statement(query)}")
         doc = rows[0]
         plan = doc[next(iter(doc))] if isinstance(doc, dict) else doc
         if isinstance(plan, list):
@@ -38,6 +40,20 @@ class PostgresAdapter:
         nodes = list(_walk(plan))
 
         rows_scanned = max((n.get("Plan Rows", 0) for n in nodes), default=0)
+        # Plan Rows on a filtered Seq Scan is output rows, not rows visited.
+        # Where available, use cached relation cardinality for scan work and
+        # the index selectivity gate. No data query is executed.
+        if callable(getattr(run_sql, "relation_rows", None)):
+            for node in nodes:
+                if node.get("Node Type") != "Seq Scan" or not node.get("Relation Name"):
+                    continue
+                try:
+                    count = run_sql.relation_rows(node.get("Schema", "public"), node["Relation Name"])
+                except Exception:
+                    count = None
+                if count is not None:
+                    node["_relation_rows"] = count
+                    rows_scanned = max(rows_scanned, count)
         rows_returned = plan.get("Plan Rows", 0)
         total_cost = float(plan.get("Total Cost", 0.0))
         strategy = [
@@ -55,13 +71,13 @@ class PostgresAdapter:
         flags: list[EngineFlag] = []
         for n in plan.nodes:
             ntype = n.get("Node Type", "")
-            est_rows = n.get("Plan Rows", 0)
+            est_rows = n.get("_relation_rows", n.get("Plan Rows", 0))
             rel = n.get("Relation Name", "a table")
             if ntype == "Seq Scan" and est_rows and est_rows > 100_000:
                 flags.append(EngineFlag(
                     "SEQ_SCAN_LARGE",
                     f"Seq Scan on {rel} over ~{est_rows:,} estimated rows — "
-                    f"no usable index for the filter.",
+                    f"the planner chose sequential access.",
                     "high",
                 ))
             if ntype == "Nested Loop":
@@ -126,18 +142,27 @@ class PostgresAdapter:
         if ntype == "Aggregate":
             return "collapses rows into aggregate results"
         if ntype == "Limit":
-            return "stops after the requested number of rows (but only after everything below ran)"
+            return "stops requesting rows once the limit is met; blocking sorts/aggregates may still process their full input"
         return f"{ntype} node"
 
     def headline(self, plan: PlanResult) -> str:
-        worst = max(plan.nodes, key=lambda n: n.get("Total Cost", 0), default={})
+        # Costs are cumulative: a wrapper often includes all child work.
+        # Rank local cost first, preferring substantive nodes over wrappers on ties.
+        def work(node):
+            children = node.get("Plans", [])
+            local = max(0.0, node.get("Total Cost", 0) - sum(
+                c.get("Total Cost", 0) for c in children))
+            substantive = node.get("Node Type") not in {"Limit", "Result", "Gather"}
+            return local, substantive, node.get("Plan Rows", 0)
+
+        worst = max(plan.nodes, key=work, default={})
         ntype = worst.get("Node Type", "")
         rel = worst.get("Relation Name", "the table")
         rows = worst.get("Plan Rows", 0)
         if ntype == "Seq Scan":
-            return (f"Postgres can't use an index for your filter, so it reads every one "
-                    f"of ~{rows:,} rows in {rel} (a Seq Scan). If the filter is selective, "
-                    f"add an index and it jumps straight to the matches instead.")
+            return (f"Postgres chose a Seq Scan on {rel} (~{rows:,} estimated output rows "
+                    f"at this node). A LIMIT may stop it early. If the filter is selective, "
+                    f"consider an index; only replanning can verify its benefit.")
         if ntype in ("Index Scan", "Index Only Scan"):
             return (f"Good — Postgres uses an index on {rel}, touching only matching rows "
                     f"(~{rows:,}) instead of scanning the whole table.")

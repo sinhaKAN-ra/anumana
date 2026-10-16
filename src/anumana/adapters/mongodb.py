@@ -34,12 +34,35 @@ from anumana.adapters.base import Adapter, EngineFlag, EngineMetrics, PlanResult
 _SORT_META_VECTOR = re.compile(r"\$vectorSearch|\$search", re.I)
 
 
-def _walk_stages(plan: dict):
-    """Yield each stage in a Mongo winningPlan inputStage chain, outer-first."""
-    node = plan
-    while isinstance(node, dict) and node.get("stage"):
-        yield node
-        node = node.get("inputStage")
+def parse_find_request(query: str) -> dict:
+    """Accept only the documented find shape; never forward arbitrary commands."""
+    spec = json.loads(query)
+    allowed = {"find", "filter", "projection", "sort", "limit", "skip", "hint", "collation", "maxTimeMS"}
+    if not isinstance(spec, dict) or not isinstance(spec.get("find"), str) or not spec["find"]:
+        raise ValueError("MongoDB input must be a JSON find request with a collection name")
+    if set(spec) - allowed:
+        raise ValueError("Unsupported MongoDB find options")
+    for key in ("filter", "projection", "sort", "collation"):
+        if key in spec and not isinstance(spec[key], dict):
+            raise ValueError(f"MongoDB {key} must be an object")
+    for key in ("limit", "skip", "maxTimeMS"):
+        if key in spec and (type(spec[key]) is not int or spec[key] < 0):
+            raise ValueError(f"MongoDB {key} must be a nonnegative integer")
+    return spec
+
+
+def _walk_stages(plan):
+    """Walk classic, SBE queryPlan, branching and sharded winning plans."""
+    if isinstance(plan, dict):
+        if plan.get("stage"):
+            yield plan
+        # Only called on winning plans: never traverse rejected/execution plans.
+        for key in ("queryPlan", "inputStage", "inputStages", "outerStage", "innerStage", "shards", "winningPlan"):
+            if key in plan:
+                yield from _walk_stages(plan[key])
+    elif isinstance(plan, list):
+        for node in plan:
+            yield from _walk_stages(node)
 
 
 class MongoAdapter:
@@ -48,7 +71,8 @@ class MongoAdapter:
     verified_live = False  # offline-verified; no live MongoDB instance tested
 
     def get_plan(self, run_sql: Callable[[str], list], query: str) -> PlanResult:
-        # run_sql returns the raw explain() document (one element list).
+        parse_find_request(query)
+        # run_sql returns a queryPlanner document (one element list).
         rows = run_sql(query)
         doc = rows[0] if isinstance(rows, list) else rows
         if isinstance(doc, str):
@@ -56,6 +80,8 @@ class MongoAdapter:
         qp = doc.get("queryPlanner", doc)
         winning = qp.get("winningPlan", {})
         stages = list(_walk_stages(winning))
+        if not stages:
+            raise ValueError("MongoDB explain returned no recognized winning-plan stages")
 
         # normalize each Mongo stage into the shared node shape the engine walks.
         nodes: list[dict] = []
@@ -80,6 +106,7 @@ class MongoAdapter:
         return pr
 
     def detect_flags(self, query: str, plan: PlanResult) -> list[EngineFlag]:
+        spec = parse_find_request(query)
         flags: list[EngineFlag] = []
         stages = {n.get("_mongo_stage") for n in plan.nodes}
 
@@ -92,7 +119,7 @@ class MongoAdapter:
                 "high",
             ))
         # no projection -> whole documents returned (Mongo's SELECT *)
-        if '"projection"' not in query and "projection" not in query:
+        if not spec.get("projection"):
             flags.append(EngineFlag(
                 "MONGO_NO_PROJECTION",
                 "No projection — the full document is returned for every match. "
@@ -100,7 +127,7 @@ class MongoAdapter:
                 "medium",
             ))
         # no limit -> unbounded cursor
-        if '"limit"' not in query and "limit" not in query:
+        if not spec.get("limit"):
             flags.append(EngineFlag(
                 "MONGO_UNBOUNDED",
                 "No limit — the cursor can return the whole matching set. Add "
@@ -128,7 +155,7 @@ class MongoAdapter:
         if stage == "FETCH":
             return "fetches the full documents for the row ids the index found"
         if stage == "SORT":
-            return "sorts matched documents in memory (fails at 32MB without an index-backed sort)"
+            return "sorts matched documents; memory and spill behavior depend on server version and configuration"
         if stage == "LIMIT":
             return "stops after the requested number of documents"
         if stage == "PROJECTION_SIMPLE" or stage == "PROJECTION_COVERED":

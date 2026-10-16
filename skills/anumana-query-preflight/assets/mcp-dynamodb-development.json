@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "anumana": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "REPLACE_WITH_ANUMANA_CHECKOUT",
+        "run",
+        "--no-sync",
+        "anumana-mcp"
+      ],
+      "env": {
+        "ANUMANA_TARGETS": "[{\"name\":\"dynamo_db\",\"engine\":\"dynamodb\",\"region\":\"REPLACE_WITH_AWS_REGION\"}]"
+      }
+    }
+  }
+}

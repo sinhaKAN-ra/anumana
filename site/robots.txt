@@ -1,0 +1,30 @@
+# Public static content is crawlable. No pre-existing crawler policy was present.
+# These exclusions are indexing guidance, not authentication or access controls.
+
+User-agent: *
+Disallow: /account
+Disallow: /accounts
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /api
+Disallow: /internal
+Disallow: /private
+Disallow: /login
+Disallow: /signin
+Disallow: /settings
+Allow: /
+
+User-agent: PerplexityBot
+Disallow: /account
+Disallow: /accounts
+Disallow: /dashboard
+Disallow: /admin
+Disallow: /api
+Disallow: /internal
+Disallow: /private
+Disallow: /login
+Disallow: /signin
+Disallow: /settings
+Allow: /
+
+Sitemap: https://anumana.aolbeam.com/sitemap.xml

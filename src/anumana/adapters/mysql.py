@@ -25,7 +25,10 @@ run_sql is wired by server.py to a read-only MySQL connection
 from __future__ import annotations
 
 import json
+import math
 import re
+
+from anumana.sql_text import single_statement
 from typing import Callable
 
 from anumana.adapters.base import (
@@ -67,7 +70,7 @@ class MysqlAdapter:
     verified_live = False  # offline-verified against sample EXPLAIN JSON; no live server tested
 
     def get_plan(self, run_sql: Callable[[str], list], query: str) -> PlanResult:
-        rows = run_sql(f"EXPLAIN FORMAT=JSON {query}")
+        rows = run_sql(f"EXPLAIN FORMAT=JSON {single_statement(query)}")
         doc = rows[0] if isinstance(rows, (list, tuple)) else rows
         if isinstance(doc, (list, tuple)):
             doc = doc[0]
@@ -99,10 +102,14 @@ class MysqlAdapter:
 
         # top-level query_cost if MySQL 8.0+ provided it
         query_cost = 0.0
+        cost_available = False
         ci = qb.get("cost_info") if isinstance(qb, dict) else None
-        if isinstance(ci, dict) and ci.get("query_cost"):
+        if isinstance(ci, dict) and ci.get("query_cost") is not None:
             try:
                 query_cost = float(ci["query_cost"])
+                cost_available = math.isfinite(query_cost) and query_cost >= 0
+                if not cost_available:
+                    query_cost = 0.0
             except (TypeError, ValueError):
                 query_cost = 0.0
 
@@ -115,7 +122,8 @@ class MysqlAdapter:
             cost_is_unitless=True,
             strategy=strategy,
         )
-        return PlanResult(raw=qb, nodes=nodes, metrics=metrics, has_live_stats=True)
+        return PlanResult(raw=qb, nodes=nodes, metrics=metrics, has_live_stats=True,
+                          has_cost_estimate=cost_available)
 
     def detect_flags(self, query: str, plan: PlanResult) -> list[EngineFlag]:
         flags: list[EngineFlag] = []

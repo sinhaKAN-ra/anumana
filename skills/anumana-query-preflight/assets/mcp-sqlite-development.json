@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "anumana": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "REPLACE_WITH_ANUMANA_CHECKOUT",
+        "run",
+        "--no-sync",
+        "anumana-mcp"
+      ],
+      "env": {
+        "ANUMANA_TARGETS": "[{\"name\":\"sqlite_db\",\"engine\":\"sqlite\",\"path\":\"REPLACE_WITH_ABSOLUTE_EXISTING_SQLITE_PATH\"}]"
+      }
+    }
+  }
+}

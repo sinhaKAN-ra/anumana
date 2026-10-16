@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "anumana": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "REPLACE_WITH_ANUMANA_CHECKOUT",
+        "run",
+        "--no-sync",
+        "anumana-mcp"
+      ],
+      "env": {
+        "ANUMANA_TARGETS": "[{\"name\":\"postgres_db\",\"engine\":\"postgres\",\"dsn\":\"REPLACE_WITH_READ_ONLY_POSTGRES_DSN\"},{\"name\":\"vectors_db\",\"engine\":\"pgvector\",\"dsn\":\"REPLACE_WITH_READ_ONLY_POSTGRES_DSN\"},{\"name\":\"sqlite_db\",\"engine\":\"sqlite\",\"path\":\"REPLACE_WITH_ABSOLUTE_EXISTING_SQLITE_PATH\"},{\"name\":\"mysql_db\",\"engine\":\"mysql\",\"dsn\":\"REPLACE_WITH_READ_ONLY_MYSQL_DSN\"},{\"name\":\"mongo_db\",\"engine\":\"mongodb\",\"uri\":\"REPLACE_WITH_MONGODB_URI_INCLUDING_DATABASE\"},{\"name\":\"dynamo_db\",\"engine\":\"dynamodb\",\"region\":\"REPLACE_WITH_AWS_REGION\"},{\"name\":\"redshift_db\",\"engine\":\"redshift\",\"dsn\":\"REPLACE_WITH_READ_ONLY_REDSHIFT_DSN\"}]"
+      }
+    }
+  }
+}

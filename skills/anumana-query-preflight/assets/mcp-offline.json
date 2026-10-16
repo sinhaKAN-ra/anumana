@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "anumana": {
+      "command": "uvx",
+      "args": ["anumana-mcp==0.2.1"]
+    }
+  }
+}

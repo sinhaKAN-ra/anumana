@@ -1,0 +1,181 @@
+{
+  "scope": "Current development checkout; not a published-release support guarantee",
+  "engines": [
+    {
+      "id": "postgres",
+      "name": "PostgreSQL",
+      "aliases": [
+        "postgresql",
+        "pg"
+      ],
+      "paradigm": "Relational SQL",
+      "adapter": true,
+      "runner": true,
+      "verified_live": true,
+      "signal": "EXPLAIN JSON",
+      "input": "SQL",
+      "evidence": "Cached rows and unitless planner cost",
+      "reference": "engines/postgres.md"
+    },
+    {
+      "id": "pgvector",
+      "name": "pgvector",
+      "aliases": [
+        "vector"
+      ],
+      "paradigm": "Vector / RAG",
+      "adapter": true,
+      "runner": true,
+      "verified_live": false,
+      "signal": "PostgreSQL EXPLAIN + vector flags",
+      "input": "SQL",
+      "evidence": "Unitless planner cost; no recall estimate",
+      "reference": "engines/pgvector.md"
+    },
+    {
+      "id": "sqlite",
+      "name": "SQLite",
+      "aliases": [
+        "sqlite3"
+      ],
+      "paradigm": "Embedded SQL",
+      "adapter": true,
+      "runner": true,
+      "verified_live": true,
+      "signal": "EXPLAIN QUERY PLAN",
+      "input": "SQL",
+      "evidence": "HEURISTIC access pattern; no numeric cost",
+      "reference": "engines/sqlite.md"
+    },
+    {
+      "id": "mysql",
+      "name": "MySQL / MariaDB",
+      "aliases": [
+        "mariadb"
+      ],
+      "paradigm": "Relational SQL",
+      "adapter": true,
+      "runner": true,
+      "verified_live": false,
+      "signal": "EXPLAIN FORMAT=JSON",
+      "input": "SQL",
+      "evidence": "Estimated rows; optimizer cost only when supplied",
+      "reference": "engines/mysql.md"
+    },
+    {
+      "id": "mongodb",
+      "name": "MongoDB",
+      "aliases": [
+        "mongo"
+      ],
+      "paradigm": "Document",
+      "adapter": true,
+      "runner": true,
+      "verified_live": false,
+      "signal": "explain with queryPlanner verbosity",
+      "input": "JSON find request",
+      "evidence": "HEURISTIC access pattern; no row/cost estimates",
+      "reference": "engines/mongodb.md"
+    },
+    {
+      "id": "dynamodb",
+      "name": "DynamoDB",
+      "aliases": [
+        "dynamo"
+      ],
+      "paradigm": "Key-value / serverless",
+      "adapter": true,
+      "runner": true,
+      "verified_live": false,
+      "signal": "Request-shape rules; metadata discovery",
+      "input": "JSON Query/Scan request",
+      "evidence": "HEURISTIC; no planner or capacity prediction",
+      "reference": "engines/dynamodb.md"
+    },
+    {
+      "id": "redshift",
+      "name": "Amazon Redshift",
+      "aliases": [],
+      "paradigm": "MPP warehouse",
+      "adapter": true,
+      "runner": true,
+      "verified_live": false,
+      "signal": "Text EXPLAIN",
+      "input": "SQL",
+      "evidence": "Estimated rows and relative plan cost",
+      "reference": "engines/redshift.md"
+    },
+    {
+      "id": "bigquery",
+      "name": "Google BigQuery",
+      "aliases": [
+        "bq"
+      ],
+      "paradigm": "Serverless warehouse",
+      "adapter": true,
+      "runner": false,
+      "verified_live": false,
+      "signal": "Dry-run byte estimates (adapter contract)",
+      "input": "SQL",
+      "evidence": "Prepared bytes signal; no live MCP runner",
+      "reference": "engines/bigquery.md"
+    },
+    {
+      "id": "snowflake",
+      "name": "Snowflake",
+      "aliases": [],
+      "paradigm": "Cloud warehouse",
+      "adapter": true,
+      "runner": false,
+      "verified_live": false,
+      "signal": "EXPLAIN USING JSON (adapter contract)",
+      "input": "SQL",
+      "evidence": "Prepared partition/byte estimates; no live MCP runner",
+      "reference": "engines/snowflake.md"
+    },
+    {
+      "id": "clickhouse",
+      "name": "ClickHouse",
+      "aliases": [],
+      "paradigm": "Columnar OLAP",
+      "adapter": true,
+      "runner": false,
+      "verified_live": false,
+      "signal": "EXPLAIN ESTIMATE (adapter contract)",
+      "input": "SQL",
+      "evidence": "Prepared parts/marks/row estimates; no live MCP runner",
+      "reference": "engines/clickhouse.md"
+    },
+    {
+      "id": "falkordb",
+      "name": "FalkorDB",
+      "aliases": [
+        "falkor"
+      ],
+      "paradigm": "Property graph / Cypher",
+      "adapter": true,
+      "runner": false,
+      "verified_live": false,
+      "signal": "GRAPH.EXPLAIN (adapter contract)",
+      "input": "Cypher",
+      "evidence": "HEURISTIC access pattern; no row/cost estimates",
+      "reference": "engines/falkordb.md"
+    },
+    {
+      "id": "cassandra",
+      "name": "Cassandra / ScyllaDB",
+      "aliases": [
+        "scylla",
+        "scylladb"
+      ],
+      "paradigm": "Wide-column / CQL",
+      "adapter": true,
+      "runner": false,
+      "verified_live": false,
+      "signal": "Partition-key request-shape rules",
+      "input": "CQL + actual key schema",
+      "evidence": "HEURISTIC; no EXPLAIN or cost estimate",
+      "reference": "engines/cassandra.md"
+    }
+  ]
+}

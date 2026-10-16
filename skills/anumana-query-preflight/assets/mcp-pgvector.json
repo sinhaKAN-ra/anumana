@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "anumana": {
+      "command": "uvx",
+      "args": ["anumana-mcp==0.2.1"],
+      "env": {
+        "ANUMANA_DSN": "REPLACE_WITH_READ_ONLY_POSTGRES_DSN",
+        "ANUMANA_ENGINE": "pgvector"
+      }
+    }
+  }
+}

@@ -27,6 +27,21 @@ Engines are promoted to `LIVE` one at a time as each is connected and tested.
 | **Snowflake** | Cloud warehouse | `EXPLAIN USING JSON` | 🧪 UNTESTED |
 | **ClickHouse** | OLAP | `EXPLAIN ESTIMATE` | 🧪 UNTESTED |
 
+## Server connection availability
+
+Live-runner wiring is separate from verification status. PostgreSQL, pgvector,
+SQLite, MySQL/MariaDB, MongoDB, DynamoDB and Redshift have server runner paths.
+BigQuery, ClickHouse, Snowflake, FalkorDB and Cassandra/Scylla adapters are not
+connected to live runners in the MCP server and fail explicitly. Do not advertise
+those adapters as end-to-end integrations.
+
+Unreleased core-roadmap changes include optional PostgreSQL HypoPG btree
+simulation, explicit Mongo queryPlanner verbosity, structured Dynamo request
+parsing, and honest rewrite verification fields. See
+[tool contract](TOOL_SURFACE.md) and [live verification](docs/LIVE_VERIFICATION.md).
+MySQL's optional driver is installed with `anumana-mcp[mysql]` in this checkout;
+it requires a future release before that extra is available from PyPI.
+
 ## Honesty rails
 
 - **Heuristic vs live counts.** Postgres/MySQL/Redshift/BigQuery/Snowflake/
@@ -35,11 +50,11 @@ Engines are promoted to `LIVE` one at a time as each is connected and tested.
   full scan) — Anumana reports that and says it has no live counts, rather than
   inventing numbers.
 - **EXPLAIN, never ANALYZE / PROFILE.** No adapter executes the agent's query.
-  BigQuery uses a dry run (zero bytes billed); FalkorDB uses `GRAPH.EXPLAIN`, not
+  The unwired BigQuery adapter models a dry run; FalkorDB uses `GRAPH.EXPLAIN`, not
   `GRAPH.PROFILE`.
-- **BigQuery is special:** it bills per byte scanned, and its dry run returns the
-  exact bytes a query *would* scan — so Anumana reports a real **dollar** cost
-  before you run it (`$5 / TB` on-demand).
+- **BigQuery is not live-wired:** its offline adapter can model bytes and pricing,
+  but the server cannot currently perform that dry run. Do not advertise a live
+  dollar estimate or assume a hard-coded price is current.
 
 ## Not supported (by design)
 
